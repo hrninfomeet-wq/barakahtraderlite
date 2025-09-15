@@ -84,3 +84,45 @@ class TOTPConfig(BaseModel):
     period: int = 30
     algorithm: str = "sha1"
 
+
+class TradingMode(str, Enum):
+    """Trading mode enum"""
+    PAPER = "PAPER"
+    LIVE = "LIVE"
+    MAINTENANCE = "MAINTENANCE"
+
+
+class OrderType(str, Enum):
+    """Order type enum"""
+    MARKET = "MARKET"
+    LIMIT = "LIMIT"
+    STOP = "STOP"
+    STOP_LIMIT = "STOP_LIMIT"
+
+
+class OrderStatus(str, Enum):
+    """Order status enum"""
+    PENDING = "PENDING"
+    OPEN = "OPEN"
+    PARTIAL = "PARTIAL"
+    COMPLETE = "COMPLETE"
+    CANCELLED = "CANCELLED"
+    REJECTED = "REJECTED"
+    FAILED = "FAILED"
+
+
+class Order(BaseModel):
+    """Order model for trading"""
+    symbol: str
+    quantity: int
+    side: str  # BUY or SELL
+    order_type: OrderType = OrderType.MARKET
+    price: Optional[float] = None
+    stop_price: Optional[float] = None
+    user_id: Optional[str] = None
+    order_id: Optional[str] = None
+    status: OrderStatus = OrderStatus.PENDING
+    timestamp: datetime = Field(default_factory=datetime.now)
+    
+    model_config = {"use_enum_values": True}
+

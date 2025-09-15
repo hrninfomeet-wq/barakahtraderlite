@@ -48,9 +48,60 @@ class APIUsageLog(Base):
     status_code = Column(Integer)
     rate_limit_remaining = Column(Integer)
     timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class MarketDataCache(Base):
+    """Market data cache table"""
+    __tablename__ = 'market_data_cache'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    symbol = Column(String(50), nullable=False, index=True)
+    exchange = Column(String(20), nullable=False)
+    data_type = Column(String(20), nullable=False)  # PRICE/VOLUME/ORDERBOOK/etc
+    data_json = Column(Text, nullable=False)  # JSON serialized market data
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+    expiry_time = Column(DateTime, nullable=False, index=True)
+    source = Column(String(20), nullable=False)  # FYERS/UPSTOX/etc
+    confidence_score = Column(Float, default=1.0)
     
     def __repr__(self):
-        return f"<APIUsageLog(id={self.id}, provider='{self.api_provider}', endpoint='{self.endpoint}')>"
+        return f"<MarketDataCache(symbol='{self.symbol}', timestamp='{self.timestamp}')>"
+
+
+class MarketDataValidation(Base):
+    """Market data validation results table"""
+    __tablename__ = 'market_data_validation'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    symbol = Column(String(50), nullable=False, index=True)
+    validation_tier = Column(String(20), nullable=False)  # FAST/CROSS_SOURCE/DEEP
+    validation_status = Column(String(20), nullable=False)  # validated/discrepancy_detected/failed
+    confidence_score = Column(Float, nullable=False)
+    processing_time_ms = Column(Float, nullable=False)
+    discrepancy_details = Column(Text)  # JSON details of discrepancies
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    
+    def __repr__(self):
+        return f"<MarketDataValidation(symbol='{self.symbol}', status='{self.validation_status}')>"
+
+
+class WebSocketConnectionLog(Base):
+    """WebSocket connection monitoring table"""
+    __tablename__ = 'websocket_connection_logs'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    connection_id = Column(String(100), nullable=False, index=True)
+    provider = Column(String(20), nullable=False)
+    status = Column(String(20), nullable=False)  # CONNECTED/DISCONNECTED/RECONNECTING
+    subscribed_symbols_count = Column(Integer, default=0)
+    error_count = Column(Integer, default=0)
+    last_heartbeat = Column(DateTime)
+    connected_at = Column(DateTime)
+    disconnected_at = Column(DateTime)
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    
+    def __repr__(self):
+        return f"<WebSocketConnectionLog(connection_id='{self.connection_id}', status='{self.status}')>"
 
 
 class CredentialAccessLog(Base):

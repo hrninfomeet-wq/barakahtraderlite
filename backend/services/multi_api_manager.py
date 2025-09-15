@@ -13,7 +13,8 @@ from collections import deque
 from loguru import logger
 
 from models.trading import (
-    APIProvider, APIConfig, APIHealthStatus, APIRateLimit, HealthStatus
+    APIProvider, APIConfig, APIHealthStatus, APIRateLimit, HealthStatus,
+    TradingMode, Order
 )
 from core.database import AuditLogger
 
@@ -725,9 +726,33 @@ class MultiAPIManager:
         
         logger.info(f"Initialized {len(self.apis)} APIs: {list(self.apis.keys())}")
     
-    async def execute_with_fallback(self, operation: str, **kwargs) -> Any:
-        """Execute operation with intelligent routing and automatic API fallback"""
+    async def execute_with_fallback(self, operation: str, mode: TradingMode = None, **kwargs) -> Any:
+        """Execute operation with intelligent routing and automatic API fallback
+        
+        Enhanced with mode validation for paper trading safety
+        """
         try:
+            # LAYER 1: Mode validation for paper trading
+            if mode == TradingMode.PAPER:
+                # Route to paper trading engine
+                from services.paper_trading import paper_trading_engine
+                
+                if operation == "place_order":
+                    order = kwargs.get('order')
+                    user_id = kwargs.get('user_id', 'default')
+                    result = await paper_trading_engine.execute_order(order, user_id)
+                    return result
+                elif operation in ["get_positions", "get_portfolio"]:
+                    user_id = kwargs.get('user_id', 'default')
+                    return await paper_trading_engine.get_portfolio(user_id)
+                else:
+                    # For market data operations, continue to real APIs
+                    pass
+            
+            # LAYER 2: Validate operation is allowed in current mode
+            if mode and not self._is_operation_allowed(operation, mode):
+                raise ValueError(f"Operation '{operation}' not allowed in {mode.value} mode")
+            
             # Use intelligent load balancer to select best API
             api_name = await self.load_balancer.select_best_api(operation)
             api = self.apis[api_name]
@@ -843,6 +868,25 @@ class MultiAPIManager:
                     continue
             
             raise Exception(f"All APIs failed for operation: {operation}")
+    
+    def _is_operation_allowed(self, operation: str, mode: TradingMode) -> bool:
+        """Check if operation is allowed in the given mode"""
+        # Define operations that are restricted in paper mode
+        paper_restricted_operations = [
+            'transfer_funds',
+            'withdraw_funds',
+            'modify_bank_details'
+        ]
+        
+        # Define operations that are restricted in live mode (if any)
+        live_restricted_operations = []
+        
+        if mode == TradingMode.PAPER:
+            return operation not in paper_restricted_operations
+        elif mode == TradingMode.LIVE:
+            return operation not in live_restricted_operations
+        
+        return True
     
     async def get_health_status(self) -> Dict[str, Dict]:
         """Get health status for all APIs"""
