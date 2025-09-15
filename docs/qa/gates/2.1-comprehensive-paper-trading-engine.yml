@@ -1,0 +1,86 @@
+schema: 1
+story: '2.1'
+story_title: 'Comprehensive Paper Trading Engine'
+gate: FAIL
+status_reason: 'Critical risk identified: Mode switching integration complexity could route paper trades to live APIs. Multiple high risks require mitigation before development can proceed safely.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2025-01-15T10:30:00Z'
+
+top_issues: 
+  - id: 'TECH-001'
+    severity: 'critical'
+    title: 'Mode switching integration complexity'
+    description: 'Complex integration with existing execute_with_fallback method could route paper trades to live APIs'
+    suggested_owner: 'dev'
+  - id: 'SEC-001'
+    severity: 'high'
+    title: 'Mode confusion security risk'
+    description: 'Users may accidentally place live trades when intending paper trades'
+    suggested_owner: 'dev'
+  - id: 'TECH-002'
+    severity: 'high'
+    title: 'Simulation accuracy challenge'
+    description: '95% simulation accuracy requirement is challenging to achieve'
+    suggested_owner: 'dev'
+
+waiver: 
+  active: false
+
+quality_score: 48
+expires: '2025-01-29T10:30:00Z'
+
+evidence:
+  tests_reviewed: 0
+  risks_identified: 9
+  trace:
+    ac_covered: []
+    ac_gaps: [1, 2, 3, 4, 5, 6]
+
+risk_summary:
+  totals:
+    critical: 1
+    high: 6
+    medium: 2
+    low: 0
+  highest:
+    id: 'TECH-001'
+    score: 9
+    title: 'Mode switching integration complexity'
+  recommendations:
+    must_fix:
+      - 'Implement strict mode validation in MultiAPIManager.execute_with_fallback'
+      - 'Add mode checking before any live API calls'
+      - 'Create separate execution paths for paper vs live trading'
+      - 'Implement failsafe mechanisms to prevent accidental live trades'
+    monitor:
+      - 'Add security alerts for mode switching events'
+      - 'Monitor simulation accuracy continuously'
+      - 'Track data isolation integrity'
+
+nfr_validation:
+  security:
+    status: FAIL
+    notes: 'Critical security risk: Mode confusion could lead to accidental live trades. Requires immediate mitigation.'
+  performance:
+    status: CONCERNS
+    notes: 'Mode switching <1 second requirement may be challenging with complex state management.'
+  reliability:
+    status: FAIL
+    notes: 'Data isolation and simulation accuracy risks could affect system reliability.'
+  maintainability:
+    status: CONCERNS
+    notes: 'Complex integration with existing systems may increase maintenance burden.'
+
+recommendations:
+  immediate:
+    - action: 'Implement mode validation in execute_with_fallback method'
+      refs: ['backend/services/multi_api_manager.py']
+    - action: 'Add failsafe mechanisms for mode switching'
+      refs: ['backend/services/paper_trading.py', 'frontend/components/paper_trading_mode.py']
+    - action: 'Create separate database schemas for paper/live data'
+      refs: ['backend/core/database.py']
+  future:
+    - action: 'Implement comprehensive simulation accuracy testing'
+      refs: ['backend/tests/integration/test_paper_trading_accuracy.py']
+    - action: 'Add user education and help system'
+      refs: ['frontend/components/help_system.py']
