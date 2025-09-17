@@ -12,6 +12,9 @@ from core.database import DatabaseManager, AuditLogger
 from services.multi_api_manager import MultiAPIManager
 from api.v1.system import router as system_router
 from api.v1.market_data import router as market_data_router
+from api.v1.education import router as education_router
+from api.v1.paper_trading import router as paper_trading_router
+from api.v1.strategy import router as strategy_router
 
 
 # Global variables for dependency injection
@@ -106,6 +109,9 @@ app.add_middleware(
 # Include routers
 app.include_router(system_router, prefix="/api/v1")
 app.include_router(market_data_router, prefix="/api/v1")
+app.include_router(education_router, prefix="/api/v1")
+app.include_router(paper_trading_router, prefix="/api/v1")
+app.include_router(strategy_router, prefix="/api/v1")
 
 
 @app.get("/")

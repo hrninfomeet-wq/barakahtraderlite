@@ -685,9 +685,9 @@ class HealthMonitor:
 class MultiAPIManager:
     """Manages multiple trading API connections with intelligent routing"""
     
-    def __init__(self, config: Dict, audit_logger: AuditLogger):
+    def __init__(self, config: Dict[str, Any], audit_logger=None):
         self.config = config
-        self.audit_logger = audit_logger
+        self.audit_logger = audit_logger or MockAuditLogger()
         self.apis: Dict[str, TradingAPIInterface] = {}
         self.routing_rules = config.get('routing_rules', {})
         self.fallback_chain = config.get('fallback_chain', [])
@@ -986,3 +986,11 @@ class MultiAPIManager:
                 await api.session.close()
         
         logger.info("MultiAPIManager shutdown complete")
+
+
+class MockAuditLogger:
+    def log_api_usage(self, api_provider: str, endpoint: str, request_type: str, status_code: int, response_time_ms: float):
+        logger.debug(
+            f"MockAuditLogger: provider={api_provider} endpoint={endpoint} "
+            f"type={request_type} status={status_code} rt={response_time_ms:.2f}ms"
+        )

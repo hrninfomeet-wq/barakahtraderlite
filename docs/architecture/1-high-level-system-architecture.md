@@ -29,15 +29,15 @@
                                     ↑
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                     EXTERNAL INTEGRATIONS LAYER                             │
-├─────────────────┬─────────────────┬─────────────────┬─────────────────────┤
-│   Trading APIs  │   Market Data   │   AI Services   │   Compliance        │
-├─────────────────┼─────────────────┼─────────────────┼─────────────────────┤
-│• FLATTRADE      │• Google Finance │• Gemini Pro     │• SEBI Audit Trail  │
-│• FYERS          │• NSE/BSE APIs   │• Local LLMs     │• Position Limits    │
-│• UPSTOX         │• MCX APIs       │• Lenovo AI Now  │• Risk Controls      │
-│• Alice Blue     │• FYERS Feed     │• OpenAI (Opt)   │• Tax Reporting      │
-│• Smart Routing  │• UPSTOX Feed    │• Claude (Opt)   │• Compliance Logs   │
-└─────────────────┴─────────────────┴─────────────────┴─────────────────────┘
+├─────────────────┬─────────────────┬─────────────────┬───────────────────────┤
+│   Trading APIs  │   Market Data   │   AI Services   │   Compliance          │
+├─────────────────┼─────────────────┼─────────────────┼───────────────────────┤
+│• FLATTRADE      │• Google Finance │• Gemini Pro     │• SEBI Audit Trail     │
+│• FYERS          │• NSE/BSE APIs   │• Local LLMs     │• Position Limits      │
+│• UPSTOX         │• MCX APIs       │• Lenovo AI Now  │• Risk Controls        │
+│• Alice Blue     │• FYERS Feed     │• OpenAI (Opt)   │• Tax Reporting        │
+│• Smart Routing  │• UPSTOX Feed    │• Claude (Opt)   │• Compliance Logs      │
+└─────────────────┴─────────────────┴─────────────────┴───────────────────────┘
 ```
 
 ## **1.2 Component Interaction Flow**

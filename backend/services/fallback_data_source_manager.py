@@ -12,7 +12,7 @@ from collections import defaultdict, deque
 from enum import Enum
 import json
 
-from backend.models.market_data import (
+from models.market_data import (
     MarketData, Alert, DataType, ValidationTier, PerformanceMetrics
 )
 

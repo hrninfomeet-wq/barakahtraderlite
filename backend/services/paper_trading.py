@@ -4,7 +4,7 @@ Provides realistic paper trading simulation with market impact modeling
 """
 import asyncio
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 import random
@@ -128,7 +128,7 @@ class PaperTradingEngine:
         
         # Get current market data
         market_data = await self.market_data_pipeline.get_market_data(order.symbol)
-        if not market_data:
+        if not market_data or not hasattr(market_data, 'last_price'):
             return {
                 'success': False,
                 'error': 'Market data not available',
@@ -138,7 +138,7 @@ class PaperTradingEngine:
         # Simulate execution with realistic market impact
         execution_result = await self.simulation_framework.simulate_order_execution(
             order=order,
-            market_price=market_data.last_price
+            current_price=market_data.last_price
         )
         
         # Create order response

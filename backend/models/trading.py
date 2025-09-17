@@ -3,8 +3,9 @@ Trading API Models and Data Structures
 """
 from datetime import datetime
 from typing import Dict, Any, Optional, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from enum import Enum
+from decimal import Decimal
 
 
 class APIProvider(str, Enum):
@@ -125,4 +126,33 @@ class Order(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.now)
     
     model_config = {"use_enum_values": True}
+
+
+class TradingPosition(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
+    position_id: str = Field(..., description="Unique position ID")
+    symbol: str = Field(..., description="Trading symbol")
+    quantity: int = Field(..., description="Position quantity")
+    avg_price: Decimal = Field(..., description="Average entry price")
+    current_price: Decimal = Field(..., description="Current market price")
+    unrealized_pnl: Decimal = Field(..., description="Unrealized P&L")
+    realized_pnl: Decimal = Field(..., description="Realized P&L")
+    open_date: datetime = Field(..., description="Position open date")
+    position_type: str = Field(..., description="Long/Short")
+    instrument_type: str = Field(..., description="Call/Put/Future")
+    expiry_date: Optional[datetime] = Field(None, description="Expiry date")
+    strike_price: Optional[Decimal] = Field(None, description="Strike price")
+    delta: Decimal = Field(0, description="Position delta")
+    theta: Decimal = Field(0, description="Position theta")
+
+class Portfolio(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
+    portfolio_id: str = Field(..., description="Unique portfolio ID")
+    user_id: str = Field(..., description="User ID")
+    positions: List[TradingPosition] = Field(default_factory=list, description="Current positions")
+    total_value: Decimal = Field(..., description="Total portfolio value")
+    cash_balance: Decimal = Field(..., description="Available cash")
+    margin_used: Decimal = Field(..., description="Margin used")
 

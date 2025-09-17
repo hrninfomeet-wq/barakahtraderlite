@@ -13,7 +13,7 @@ import json
 import pickle
 import hashlib
 
-from backend.models.market_data import (
+from models.market_data import (
     MarketData, CacheEntry, PerformanceMetrics, ValidationTier, DataType
 )
 

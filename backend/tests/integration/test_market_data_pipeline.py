@@ -14,8 +14,8 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-from backend.services.market_data_service import MarketDataPipeline
-from backend.models.market_data import (
+from services.market_data_service import MarketDataPipeline
+from models.market_data import (
     MarketDataRequest, MarketDataResponse, DataType, ValidationTier,
     MarketData, Alert, PerformanceMetrics
 )

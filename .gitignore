@@ -255,3 +255,6 @@ venv.bak/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+#Ignore cursor AI rules
+.cursor\rules\codacy.mdc
