@@ -11,14 +11,14 @@ from typing import Dict, List, Optional, Any, Callable
 from collections import defaultdict, deque
 import uuid
 
-from backend.models.market_data import (
+from models.market_data import (
     MarketData, MarketDataRequest, MarketDataResponse, PerformanceMetrics,
     ValidationResult, Alert, DataType, ValidationTier
 )
-from backend.services.websocket_connection_pool import WebSocketConnectionPool
-from backend.services.tiered_data_validation import TieredDataValidationArchitecture
-from backend.services.real_time_performance_architecture import RealTimePerformanceArchitecture
-from backend.services.symbol_distribution_manager import SymbolDistributionManager
+from services.websocket_connection_pool import WebSocketConnectionPool
+from services.tiered_data_validation import TieredDataValidationArchitecture
+from services.real_time_performance_architecture import RealTimePerformanceArchitecture
+from services.symbol_distribution_manager import SymbolDistributionManager
 
 logger = logging.getLogger(__name__)
 

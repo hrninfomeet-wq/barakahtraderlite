@@ -12,7 +12,7 @@ from collections import defaultdict, deque
 from dataclasses import dataclass
 import statistics
 
-from backend.models.market_data import (
+from models.market_data import (
     MarketData, ValidationResult, ValidationTier, Alert, DataType
 )
 

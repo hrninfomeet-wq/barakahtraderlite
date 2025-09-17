@@ -11,12 +11,12 @@ from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from fastapi.responses import StreamingResponse
 import json
 
-from backend.models.market_data import (
+from models.market_data import (
     MarketData, MarketDataRequest, MarketDataResponse, PerformanceMetrics,
     ValidationResult, Alert, DataType, ValidationTier, SubscriptionRequest
 )
-from backend.services.market_data_service import MarketDataPipeline
-from backend.services.fallback_data_source_manager import FallbackDataSourceManager, DataSource, DataSourcePriority
+from services.market_data_service import MarketDataPipeline
+from services.fallback_data_source_manager import FallbackDataSourceManager, DataSource, DataSourcePriority
 
 logger = logging.getLogger(__name__)
 

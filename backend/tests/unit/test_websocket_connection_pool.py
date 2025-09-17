@@ -14,10 +14,10 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-from backend.services.websocket_connection_pool import (
+from services.websocket_connection_pool import (
     WebSocketPool, WebSocketConnectionPool, ConnectionStatus
 )
-from backend.models.market_data import MarketData, DataType, ValidationTier
+from models.market_data import MarketData, DataType, ValidationTier
 
 
 class TestWebSocketPool:
@@ -291,7 +291,7 @@ class TestSymbolDistributionManager:
     @pytest.fixture
     def distribution_manager(self):
         """Create symbol distribution manager for testing"""
-        from backend.services.symbol_distribution_manager import SymbolDistributionManager
+        from services.symbol_distribution_manager import SymbolDistributionManager
         return SymbolDistributionManager()
     
     def test_get_symbol_priority(self, distribution_manager):

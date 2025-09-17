@@ -10,6 +10,7 @@ from datetime import datetime
 from services.paper_trading import PaperTradingEngine, VirtualPortfolio
 from models.trading import Order, OrderType, TradingMode
 from models.paper_trading import PaperOrderRequest
+from services.simulation_accuracy_framework import SimulationAccuracyFramework
 
 
 class TestVirtualPortfolio:

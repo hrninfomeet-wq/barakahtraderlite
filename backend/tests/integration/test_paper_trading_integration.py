@@ -198,7 +198,7 @@ class TestPaperTradingAPI:
         client = TestClient(app)
         
         # Mock authentication
-            with patch('core.security.get_current_user') as mock_auth:
+        with patch('core.security.get_current_user') as mock_auth:
             mock_auth.return_value = 'test_user'
             
             # Place paper order
@@ -223,7 +223,7 @@ class TestPaperTradingAPI:
         
         client = TestClient(app)
         
-            with patch('core.security.get_current_user') as mock_auth:
+        with patch('core.security.get_current_user') as mock_auth:
             mock_auth.return_value = 'test_user'
             
             response = client.get('/api/v1/paper/mode/current')

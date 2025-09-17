@@ -13,9 +13,9 @@ import statistics
 import random
 from loguru import logger
 
-from backend.models.trading import Order, OrderType, OrderStatus
-from backend.models.market_data import MarketData
-from backend.services.market_data_service import MarketDataPipeline
+from models.trading import Order, OrderType, OrderStatus
+from models.market_data import MarketData
+from services.market_data_service import MarketDataPipeline
 
 
 @dataclass
@@ -349,16 +349,32 @@ class SimulationAccuracyFramework:
         self.market_simulator = MarketSimulator(self.config)
         self.calibrator = AccuracyCalibrator(self.config)
         self.monitoring_active = False
-        
+        self._initialized = False
+    
+    async def initialize(self):
+        """Initialize framework resources (idempotent)."""
+        if self._initialized:
+            return
+        # In a real system we might warm caches or load calibration state here
+        self._initialized = True
+        logger.info("SimulationAccuracyFramework initialized")
+    
     async def simulate_order_execution(
         self,
-        order: Order
+        order: Order,
+        current_price: Optional[float] = None
     ) -> Dict[str, Any]:
-        """Simulate order execution with 95% accuracy"""
+        """Simulate order execution with 95% accuracy.
+        Accepts optional current_price for callers that already have market price.
+        """
+        # Ensure initialized
+        if not self._initialized:
+            await self.initialize()
         
-        # Get current market data
-        market_data = await self._get_market_data(order.symbol)
-        current_price = market_data.last_price
+        # Get current market data if not supplied
+        if current_price is None:
+            market_data = await self._get_market_data(order.symbol)
+            current_price = market_data.last_price
         
         # Simulate execution latency
         latency = await self.market_simulator.simulate_execution_latency()
@@ -380,22 +396,22 @@ class SimulationAccuracyFramework:
         
         # Create execution result
         result = {
-            "order_id": f"PAPER_{order.id}",
+            "order_id": f"PAPER_{getattr(order, 'id', 'ORDER')}",
             "symbol": order.symbol,
             "order_type": order.order_type,
             "requested_quantity": order.quantity,
             "filled_quantity": filled_quantity,
-            "requested_price": order.price,
+            "requested_price": getattr(order, 'price', None),
             "execution_price": execution_price,
             "status": status,
             "latency_ms": latency,
             "timestamp": datetime.now(),
-            "slippage": abs(execution_price - current_price) / current_price,
+            "slippage": abs(execution_price - current_price) / current_price if current_price else 0.0,
             "is_paper_trade": True
         }
         
         # Calibrate if in monitoring mode
-        if self.monitoring_active:
+        if self.monitoring_active and current_price:
             await self.calibrator.calibrate(
                 execution_price,
                 current_price,  # In production, compare with actual execution
@@ -429,12 +445,14 @@ class SimulationAccuracyFramework:
         asyncio.create_task(monitor_loop())
     
     def get_accuracy_report(self) -> Dict[str, Any]:
-        """Get comprehensive accuracy report"""
-        
+        """Get comprehensive accuracy report.
+        Ensure backward-compatible keys expected by tests.
+        """
         return {
             "current_accuracy": self.calibrator.get_current_accuracy(),
             "target_accuracy": self.config.target_accuracy,
             "total_simulations": len(self.calibrator.calibration_history),
+            "samples_analyzed": len(self.calibrator.calibration_history),
             "symbol_metrics": self.calibrator.accuracy_metrics,
             "config": {
                 "base_slippage": self.config.base_slippage,

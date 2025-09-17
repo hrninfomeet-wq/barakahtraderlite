@@ -12,11 +12,11 @@ from collections import defaultdict
 import websockets
 from websockets.exceptions import ConnectionClosed, WebSocketException
 
-from backend.models.market_data import (
+from models.market_data import (
     WebSocketConnectionInfo, ConnectionStatus, MarketData, 
     DataType, ValidationTier
 )
-from backend.services.symbol_distribution_manager import SymbolDistributionManager
+from services.symbol_distribution_manager import SymbolDistributionManager
 
 logger = logging.getLogger(__name__)
 

@@ -10,7 +10,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 import logging
 
-from backend.models.market_data import SymbolDistribution
+from models.market_data import SymbolDistribution
 
 logger = logging.getLogger(__name__)
 

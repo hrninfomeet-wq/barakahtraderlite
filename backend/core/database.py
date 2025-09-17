@@ -7,7 +7,7 @@ import hashlib
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, Text, Float
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import declarative_base, Session
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import func
 import aiosqlite
@@ -311,3 +311,13 @@ class AuditLogger:
         except Exception as e:
             logger.error(f"Failed to cleanup old logs: {e}")
             return 0
+
+ENGINE = create_engine('sqlite:///:memory:')  # Mock in-memory DB for testing
+SessionLocal = sessionmaker(bind=ENGINE)
+
+def get_db_session() -> Session:
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

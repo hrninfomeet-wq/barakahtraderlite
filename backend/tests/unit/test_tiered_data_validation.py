@@ -14,11 +14,11 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-from backend.services.tiered_data_validation import (
+from services.tiered_data_validation import (
     FastValidator, CrossSourceValidator, DeepValidator, 
     TieredDataValidationArchitecture, AccuracyTracker, ValidationMetrics
 )
-from backend.models.market_data import MarketData, ValidationResult, ValidationTier, DataType
+from models.market_data import MarketData, ValidationResult, ValidationTier, DataType
 
 
 class TestFastValidator:

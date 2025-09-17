@@ -13,7 +13,12 @@ from models.trading import OrderType, OrderStatus
 
 class PaperOrderRequest(BaseModel):
     """Request model for paper trading orders"""
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,  # Replaces orm_mode
+        json_schema_extra = {
+            'examples': [{'symbol': 'NIFTY', 'quantity': 50, 'order_type': 'buy', 'price': '18000.00'}]
+        }
+    )
     
     symbol: str = Field(..., description="Trading symbol")
     quantity: int = Field(..., gt=0, description="Order quantity")
@@ -21,16 +26,6 @@ class PaperOrderRequest(BaseModel):
     order_type: OrderType = Field(OrderType.MARKET, description="Order type")
     price: Optional[float] = Field(None, description="Limit price for LIMIT orders")
     stop_price: Optional[float] = Field(None, description="Stop price for STOP orders")
-    
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "symbol": "RELIANCE",
-                "quantity": 10,
-                "side": "BUY",
-                "order_type": "MARKET"
-            }
-        }
 
 
 class PaperOrderResponse(BaseModel):
@@ -105,7 +100,19 @@ class PaperPortfolio(BaseModel):
 
 class PerformanceMetrics(BaseModel):
     """Performance metrics for paper trading"""
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, json_schema_extra = {
+        "example": {
+            "total_trades": 50,
+            "winning_trades": 30,
+            "losing_trades": 20,
+            "win_rate": 60.0,
+            "total_pnl": 25000.0,
+            "average_profit": 1500.0,
+            "average_loss": 750.0,
+            "risk_reward_ratio": 2.0,
+            "return_percentage": 5.0
+        }
+    })
     
     total_trades: int = Field(0, description="Total number of trades")
     winning_trades: int = Field(0, description="Number of winning trades")
@@ -118,21 +125,6 @@ class PerformanceMetrics(BaseModel):
     sharpe_ratio: Optional[float] = Field(None, description="Sharpe ratio")
     max_drawdown: float = Field(0.0, description="Maximum drawdown")
     return_percentage: float = Field(0.0, description="Return percentage")
-    
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "total_trades": 50,
-                "winning_trades": 30,
-                "losing_trades": 20,
-                "win_rate": 60.0,
-                "total_pnl": 25000.0,
-                "average_profit": 1500.0,
-                "average_loss": 750.0,
-                "risk_reward_ratio": 2.0,
-                "return_percentage": 5.0
-            }
-        }
 
 
 class SimulationAccuracy(BaseModel):
@@ -184,7 +176,15 @@ class PaperTradingSession(BaseModel):
 
 class ModeSwitch(BaseModel):
     """Mode switch request/response model"""
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, json_schema_extra = {
+        "example": {
+            "from_mode": "PAPER",
+            "to_mode": "LIVE",
+            "user_id": "user123",
+            "verification_required": True,
+            "message": "Verification required for mode switch"
+        }
+    })
     
     from_mode: str = Field(..., pattern="^(PAPER|LIVE)$", description="Current mode")
     to_mode: str = Field(..., pattern="^(PAPER|LIVE)$", description="Target mode")
@@ -194,17 +194,6 @@ class ModeSwitch(BaseModel):
     switch_time: Optional[datetime] = Field(None, description="Switch timestamp")
     success: bool = Field(False, description="Switch success status")
     message: str = Field(..., description="Status message")
-    
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "from_mode": "PAPER",
-                "to_mode": "LIVE",
-                "user_id": "user123",
-                "verification_required": True,
-                "message": "Verification required for mode switch"
-            }
-        }
 
 
 class HistoricalPerformance(BaseModel):
