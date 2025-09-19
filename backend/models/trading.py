@@ -1,4 +1,4 @@
-"""
+﻿"""
 Trading API Models and Data Structures
 """
 from datetime import datetime
@@ -33,7 +33,7 @@ class APIConfig(BaseModel):
     health_check_interval: int = 30  # seconds
     timeout: int = 30  # seconds
     retry_attempts: int = 3
-    
+
     model_config = {"use_enum_values": True}
 
 
@@ -45,7 +45,7 @@ class EncryptedCredentials(BaseModel):
     last_accessed: Optional[datetime] = None
     access_count: int = 0
     is_active: bool = True
-    
+
     model_config = {"use_enum_values": True}
 
 
@@ -58,7 +58,7 @@ class APIHealthStatus(BaseModel):
     error_message: Optional[str] = None
     consecutive_failures: int = 0
     rate_limit_remaining: Optional[int] = None
-    
+
     model_config = {"use_enum_values": True}
 
 
@@ -72,7 +72,7 @@ class APIRateLimit(BaseModel):
     current_usage_minute: int = 0
     current_usage_hour: int = 0
     last_reset: datetime = Field(default_factory=datetime.now)
-    
+
     model_config = {"use_enum_values": True}
 
 
@@ -124,13 +124,13 @@ class Order(BaseModel):
     order_id: Optional[str] = None
     status: OrderStatus = OrderStatus.PENDING
     timestamp: datetime = Field(default_factory=datetime.now)
-    
+
     model_config = {"use_enum_values": True}
 
 
 class TradingPosition(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    
+
     position_id: str = Field(..., description="Unique position ID")
     symbol: str = Field(..., description="Trading symbol")
     quantity: int = Field(..., description="Position quantity")
@@ -148,7 +148,7 @@ class TradingPosition(BaseModel):
 
 class Portfolio(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    
+
     portfolio_id: str = Field(..., description="Unique portfolio ID")
     user_id: str = Field(..., description="User ID")
     positions: List[TradingPosition] = Field(default_factory=list, description="Current positions")

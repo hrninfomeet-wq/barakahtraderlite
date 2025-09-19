@@ -1,4 +1,4 @@
-"""
+﻿"""
 Educational API endpoints for F&O Educational Learning System
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -105,15 +105,15 @@ async def get_greeks_tutorial(
     """Get interactive Greeks tutorial"""
     try:
         logger.info(f"Getting Greeks tutorial for {greek_type} for user {current_user}")
-        
+
         # In production, fetch from database
         tutorial_key = f"{greek_type.value}_tutorial"
         if tutorial_key in MOCK_EDUCATIONAL_CONTENT:
             return MOCK_EDUCATIONAL_CONTENT[tutorial_key]
-        
+
         # Generate educational content dynamically
         education_content = greeks_calculator.get_greeks_education_content(greek_type)
-        
+
         tutorial = GreeksTutorial(
             greek_type=greek_type,
             explanation=education_content.get('description', ''),
@@ -126,9 +126,9 @@ async def get_greeks_tutorial(
             }],
             common_mistakes=[education_content.get('risk_management', '')]
         )
-        
+
         return tutorial
-        
+
     except Exception as e:
         logger.error(f"Error getting Greeks tutorial: {e}")
         raise HTTPException(
@@ -144,11 +144,11 @@ async def get_strategy_guide(
     """Get options strategy guide"""
     try:
         logger.info(f"Getting strategy guide for {strategy_name} for user {current_user}")
-        
+
         # In production, fetch from database
         if strategy_name in MOCK_STRATEGIES:
             template = MOCK_STRATEGIES[strategy_name]
-            
+
             strategy_guide = StrategyGuide(
                 strategy_name=template.name,
                 strategy_type=template.strategy_type,
@@ -159,14 +159,14 @@ async def get_strategy_guide(
                 risk_reward_profile=template.risk_parameters,
                 examples=[template.educational_content]
             )
-            
+
             return strategy_guide
-        
+
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Strategy guide not found: {strategy_name}"
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -184,7 +184,7 @@ async def get_market_education(
     """Get Indian market education"""
     try:
         logger.info(f"Getting market education for {topic} for user {current_user}")
-        
+
         # Mock market education data
         market_education_data = {
             "nse_regulations": MarketEducation(
@@ -213,15 +213,15 @@ async def get_market_education(
                 }
             )
         }
-        
+
         if topic in market_education_data:
             return market_education_data[topic]
-        
+
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Market education topic not found: {topic}"
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -239,7 +239,7 @@ async def calculate_greeks(
     """Calculate options Greeks"""
     try:
         logger.info(f"Calculating Greeks for user {current_user}")
-        
+
         # Extract parameters
         S = calculation_request.get('stock_price', 0)
         K = calculation_request.get('strike_price', 0)
@@ -247,17 +247,17 @@ async def calculate_greeks(
         r = calculation_request.get('interest_rate', 0.06)
         sigma = calculation_request.get('volatility', 0.2)
         option_type = calculation_request.get('option_type', 'call')
-        
+
         # Validate inputs
         if S <= 0 or K <= 0 or T <= 0 or sigma <= 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid calculation parameters"
             )
-        
+
         # Calculate Greeks
         greeks = greeks_calculator.calculate_all_greeks(S, K, T, r, sigma, option_type)
-        
+
         # Add educational interpretation
         interpretation = {
             'delta_interpretation': greeks_calculator._analyze_delta_exposure(greeks['delta']),
@@ -265,13 +265,13 @@ async def calculate_greeks(
             'theta_interpretation': greeks_calculator._analyze_theta_exposure(greeks['theta']),
             'vega_interpretation': greeks_calculator._analyze_vega_exposure(greeks['vega'])
         }
-        
+
         return {
             'greeks': greeks,
             'interpretation': interpretation,
             'parameters': calculation_request
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -289,47 +289,47 @@ async def validate_strategy(
     """Validate options strategy"""
     try:
         logger.info(f"Validating strategy {strategy.name} for user {current_user}")
-        
+
         validation_errors = []
         warnings = []
-        
+
         # Basic validation
         if not strategy.legs:
             validation_errors.append("Strategy must have at least one leg")
-        
+
         if len(strategy.legs) > 10:
             warnings.append("Strategy has many legs - consider complexity")
-        
+
         # Validate legs
         for i, leg in enumerate(strategy.legs):
             if leg.quantity <= 0:
                 validation_errors.append(f"Leg {i+1}: Quantity must be positive")
-            
+
             if leg.strike_price <= 0:
                 validation_errors.append(f"Leg {i+1}: Strike price must be positive")
-            
+
             if leg.expiry_date < datetime.now():
                 validation_errors.append(f"Leg {i+1}: Expiry date cannot be in the past")
-        
+
         # Risk assessment
         risk_level = "medium"  # Default
         if len(strategy.legs) > 4:
             risk_level = "high"
         elif len(strategy.legs) <= 2:
             risk_level = "low"
-        
+
         # Complexity score (1-10)
         complexity_score = min(10, len(strategy.legs) + 2)
-        
+
         # Suitability score (mock calculation)
         suitability_score = 0.8 if not validation_errors else 0.3
-        
+
         recommendations = []
         if validation_errors:
             recommendations.append("Fix validation errors before proceeding")
         if warnings:
             recommendations.append("Review warnings and consider simplifying strategy")
-        
+
         result = StrategyValidationResult(
             is_valid=len(validation_errors) == 0,
             validation_errors=validation_errors,
@@ -339,9 +339,9 @@ async def validate_strategy(
             suitability_score=suitability_score,
             recommendations=recommendations
         )
-        
+
         return result
-        
+
     except Exception as e:
         logger.error(f"Error validating strategy: {e}")
         raise HTTPException(
@@ -357,7 +357,7 @@ async def get_user_progress(
     """Get user learning progress"""
     try:
         logger.info(f"Getting progress for user {user_id}")
-        
+
         # Mock progress data - in production, fetch from database
         progress = UserProgress(
             user_id=user_id,
@@ -369,9 +369,9 @@ async def get_user_progress(
             current_module="gamma_tutorial",
             learning_goals=["Master all Greeks", "Learn 10+ strategies"]
         )
-        
+
         return progress
-        
+
     except Exception as e:
         logger.error(f"Error getting user progress: {e}")
         raise HTTPException(
@@ -387,10 +387,10 @@ async def update_progress(
     """Update user progress"""
     try:
         logger.info(f"Updating progress for user {update_request.user_id}")
-        
+
         # In production, update database
         # For now, return success response
-        
+
         return {
             "status": "success",
             "message": "Progress updated successfully",
@@ -398,7 +398,7 @@ async def update_progress(
             "module_id": update_request.module_id,
             "updated_at": datetime.now().isoformat()
         }
-        
+
     except Exception as e:
         logger.error(f"Error updating progress: {e}")
         raise HTTPException(
@@ -418,10 +418,10 @@ async def search_educational_content(
     """Search educational content"""
     try:
         logger.info(f"Searching educational content for user {current_user}")
-        
+
         # Mock search results
         results = []
-        
+
         if content_type == ContentType.GREEKS or content_type is None:
             results.extend([
                 {
@@ -432,14 +432,14 @@ async def search_educational_content(
                     "description": "Learn about option delta and price sensitivity"
                 },
                 {
-                    "id": "gamma_tutorial", 
+                    "id": "gamma_tutorial",
                     "title": "Gamma Tutorial",
                     "content_type": "greeks",
                     "difficulty_level": 2,
                     "description": "Understand gamma and delta acceleration"
                 }
             ])
-        
+
         if content_type == ContentType.STRATEGY or content_type is None:
             results.extend([
                 {
@@ -450,18 +450,18 @@ async def search_educational_content(
                     "description": "Learn the basics of buying call options"
                 }
             ])
-        
+
         # Apply filters
         if difficulty_level:
             results = [r for r in results if r['difficulty_level'] == difficulty_level.value]
-        
+
         if search_query:
             results = [r for r in results if search_query.lower() in r['title'].lower()]
-        
+
         # Apply pagination
         total_results = len(results)
         paginated_results = results[offset:offset + limit]
-        
+
         return {
             "results": paginated_results,
             "total": total_results,
@@ -469,7 +469,7 @@ async def search_educational_content(
             "offset": offset,
             "has_more": offset + limit < total_results
         }
-        
+
     except Exception as e:
         logger.error(f"Error searching educational content: {e}")
         raise HTTPException(

@@ -1,4 +1,4 @@
-"""
+﻿"""
 System API endpoints for health monitoring and status
 """
 from datetime import datetime
@@ -42,16 +42,16 @@ async def get_api_manager() -> MultiAPIManager:
     db_manager = DatabaseManager()
     db_manager.initialize()
     audit_logger = AuditLogger(db_manager)
-    
+
     config = {
         "enabled_apis": ["flattrade", "fyers", "upstox", "alice_blue"],
         "routing_rules": {},
         "fallback_chain": ["fyers", "upstox", "flattrade", "alice_blue"]
     }
-    
+
     api_manager = MultiAPIManager(config, audit_logger)
     await api_manager.initialize_apis()
-    
+
     return api_manager
 
 
@@ -62,11 +62,11 @@ async def get_system_health(api_manager: MultiAPIManager = Depends(get_api_manag
     """
     try:
         health_statuses = await api_manager.get_health_status()
-        
+
         api_status_responses = []
         healthy_count = 0
         unhealthy_count = 0
-        
+
         for api_name, status_data in health_statuses.items():
             api_status = HealthStatusResponse(
                 provider=api_name,
@@ -75,14 +75,14 @@ async def get_system_health(api_manager: MultiAPIManager = Depends(get_api_manag
                 consecutive_failures=0,  # Would be tracked in real implementation
                 rate_limit_remaining=status_data["rate_limits"].get("current_second", 0)
             )
-            
+
             api_status_responses.append(api_status)
-            
+
             if status_data["status"] == HealthStatus.HEALTHY:
                 healthy_count += 1
             else:
                 unhealthy_count += 1
-        
+
         return SystemStatusResponse(
             timestamp=datetime.now(),
             total_apis=len(health_statuses),
@@ -90,7 +90,7 @@ async def get_system_health(api_manager: MultiAPIManager = Depends(get_api_manag
             unhealthy_apis=unhealthy_count,
             api_statuses=api_status_responses
         )
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get system health: {str(e)}")
 
@@ -106,14 +106,14 @@ async def get_api_health(provider: str, api_manager: MultiAPIManager = Depends(g
             api_provider = APIProvider(provider.lower())
         except ValueError:
             raise HTTPException(status_code=400, detail=f"Invalid API provider: {provider}")
-        
+
         health_statuses = await api_manager.get_health_status()
-        
+
         if provider.lower() not in health_statuses:
             raise HTTPException(status_code=404, detail=f"API provider {provider} not found")
-        
+
         status_data = health_statuses[provider.lower()]
-        
+
         return HealthStatusResponse(
             provider=provider.lower(),
             status=status_data["status"].value,
@@ -121,7 +121,7 @@ async def get_api_health(provider: str, api_manager: MultiAPIManager = Depends(g
             consecutive_failures=0,  # Would be tracked in real implementation
             rate_limit_remaining=status_data["rate_limits"].get("current_second", 0)
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -139,22 +139,22 @@ async def trigger_health_check(provider: str, api_manager: MultiAPIManager = Dep
             api_provider = APIProvider(provider.lower())
         except ValueError:
             raise HTTPException(status_code=400, detail=f"Invalid API provider: {provider}")
-        
+
         # Get API instance
         api = api_manager.apis.get(provider.lower())
         if not api:
             raise HTTPException(status_code=404, detail=f"API provider {provider} not found")
-        
+
         # Trigger health check
         is_healthy = await api.health_check()
-        
+
         return {
             "provider": provider.lower(),
             "healthy": is_healthy,
             "timestamp": datetime.now(),
             "message": f"Health check {'passed' if is_healthy else 'failed'}"
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -168,15 +168,15 @@ async def get_rate_limits(api_manager: MultiAPIManager = Depends(get_api_manager
     """
     try:
         rate_limits = {}
-        
+
         for api_name, api in api_manager.apis.items():
             rate_limits[api_name] = api.get_rate_limits()
-        
+
         return {
             "timestamp": datetime.now(),
             "rate_limits": rate_limits
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get rate limits: {str(e)}")
 
@@ -192,17 +192,17 @@ async def get_api_rate_limits(provider: str, api_manager: MultiAPIManager = Depe
             api_provider = APIProvider(provider.lower())
         except ValueError:
             raise HTTPException(status_code=400, detail=f"Invalid API provider: {provider}")
-        
+
         api = api_manager.apis.get(provider.lower())
         if not api:
             raise HTTPException(status_code=404, detail=f"API provider {provider} not found")
-        
+
         return {
             "provider": provider.lower(),
             "timestamp": datetime.now(),
             "rate_limits": api.get_rate_limits()
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -212,7 +212,7 @@ async def get_api_rate_limits(provider: str, api_manager: MultiAPIManager = Depe
 @router.get("/dashboard/overview")
 async def get_dashboard_overview(api_manager: MultiAPIManager = Depends(get_api_manager)):
     """
-    Get comprehensive dashboard overview with real-time usage percentages, 
+    Get comprehensive dashboard overview with real-time usage percentages,
     historical patterns, and optimization suggestions (AC1.2.4)
     """
     try:
@@ -221,12 +221,12 @@ async def get_dashboard_overview(api_manager: MultiAPIManager = Depends(get_api_
         load_analytics = await api_manager.get_load_balancing_insights()
         optimization_suggestions = await api_manager.get_optimization_suggestions()
         health_status = await api_manager.get_health_status()
-        
+
         # Calculate overall system metrics
         total_apis = len(health_status)
-        healthy_apis = sum(1 for status in health_status.values() 
+        healthy_apis = sum(1 for status in health_status.values()
                           if status["status"] == HealthStatus.HEALTHY)
-        
+
         # Calculate average usage across all APIs
         total_usage = 0
         active_apis = 0
@@ -235,9 +235,9 @@ async def get_dashboard_overview(api_manager: MultiAPIManager = Depends(get_api_
             if usage > 0:
                 total_usage += usage
                 active_apis += 1
-        
+
         avg_usage = (total_usage / active_apis * 100) if active_apis > 0 else 0
-        
+
         return {
             "timestamp": datetime.now(),
             "system_overview": {
@@ -250,11 +250,11 @@ async def get_dashboard_overview(api_manager: MultiAPIManager = Depends(get_api_
             "load_balancing": load_analytics,
             "optimization_suggestions": optimization_suggestions,
             "alerts": [
-                suggestion for suggestion in optimization_suggestions 
+                suggestion for suggestion in optimization_suggestions
                 if suggestion['type'] in ['high_usage_warning', 'approaching_limit']
             ]
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get dashboard overview: {str(e)}")
 
@@ -266,7 +266,7 @@ async def get_usage_patterns(api_manager: MultiAPIManager = Depends(get_api_mana
     """
     try:
         rate_analytics = await api_manager.get_rate_limit_analytics()
-        
+
         # Extract usage patterns from each API
         patterns = {}
         for api_name, analytics in rate_analytics.items():
@@ -280,12 +280,12 @@ async def get_usage_patterns(api_manager: MultiAPIManager = Depends(get_api_mana
                 "total_requests": analytics['rate_limit_status']['total_requests'],
                 "blocked_requests": analytics['rate_limit_status']['blocked_requests']
             }
-        
+
         return {
             "timestamp": datetime.now(),
             "usage_patterns": patterns
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get usage patterns: {str(e)}")
 
@@ -297,7 +297,7 @@ async def get_performance_metrics(api_manager: MultiAPIManager = Depends(get_api
     """
     try:
         load_analytics = await api_manager.get_load_balancing_insights()
-        
+
         return {
             "timestamp": datetime.now(),
             "performance_metrics": load_analytics,
@@ -307,6 +307,6 @@ async def get_performance_metrics(api_manager: MultiAPIManager = Depends(get_api
                 "load_balance_efficiency": load_analytics.get('load_balance_efficiency', 0)
             }
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get performance metrics: {str(e)}")

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Market Data Models for Real-Time Multi-Source Market Data Pipeline
 Story 1.3: Real-Time Multi-Source Market Data Pipeline
 """
@@ -43,7 +43,7 @@ class MarketData(BaseModel):
     volume: int = Field(..., description="Trading volume")
     timestamp: datetime = Field(..., description="Data timestamp")
     data_type: DataType = Field(..., description="Type of market data")
-    
+
     # Additional fields for comprehensive market data
     open_price: Optional[float] = Field(None, description="Opening price")
     high_price: Optional[float] = Field(None, description="Day's high price")
@@ -51,28 +51,28 @@ class MarketData(BaseModel):
     close_price: Optional[float] = Field(None, description="Previous close price")
     change: Optional[float] = Field(None, description="Price change from previous close")
     change_percent: Optional[float] = Field(None, description="Percentage change")
-    
+
     # Metadata
     source: str = Field(..., description="Data source (FYERS, UPSTOX, etc.)")
     validation_tier: ValidationTier = Field(ValidationTier.FAST, description="Validation tier used")
     confidence_score: float = Field(1.0, ge=0.0, le=1.0, description="Data confidence score")
-    
+
     model_config = {"use_enum_values": True}
-    
+
     @field_validator('timestamp')
     @classmethod
     def validate_timestamp(cls, v):
         if v > datetime.now():
             raise ValueError('Timestamp cannot be in the future')
         return v
-    
+
     @field_validator('last_price')
     @classmethod
     def validate_price(cls, v):
         if v is not None and v <= 0:
             raise ValueError('Price must be positive')
         return v
-    
+
     @field_validator('volume')
     @classmethod
     def validate_volume(cls, v):
@@ -91,7 +91,7 @@ class WebSocketConnectionInfo(BaseModel):
     connected_at: Optional[datetime] = Field(None, description="Connection timestamp")
     last_heartbeat: Optional[datetime] = Field(None, description="Last heartbeat received")
     error_count: int = Field(0, description="Number of connection errors")
-    
+
     model_config = {"use_enum_values": True}
 
 
@@ -100,7 +100,7 @@ class SymbolDistribution(BaseModel):
     fyers_pools: List[Dict[str, Any]] = Field(default_factory=list, description="FYERS pool distributions")
     upstox_pool: List[str] = Field(default_factory=list, description="UPSTOX pool symbols")
     total_symbols: int = Field(0, description="Total symbols distributed")
-    
+
     def get_total_symbols(self) -> int:
         """Calculate total symbols across all pools"""
         total = len(self.upstox_pool)
@@ -117,7 +117,7 @@ class ValidationResult(BaseModel):
     processing_time_ms: float = Field(..., description="Validation processing time in milliseconds")
     recommended_action: str = Field(..., description="Recommended action based on validation")
     discrepancy_details: Optional[Dict[str, Any]] = Field(None, description="Details of any discrepancies found")
-    
+
     model_config = {"use_enum_values": True}
 
 
@@ -140,11 +140,11 @@ class CacheEntry(BaseModel):
     expires_at: datetime = Field(..., description="Cache expiration time")
     access_count: int = Field(0, description="Number of times accessed")
     last_accessed: datetime = Field(default_factory=datetime.now, description="Last access time")
-    
+
     def is_expired(self) -> bool:
         """Check if cache entry is expired"""
         return datetime.now() > self.expires_at
-    
+
     def is_fresh(self, max_age_seconds: float = 1.0) -> bool:
         """Check if cache entry is fresh (within max_age_seconds)"""
         age = (datetime.now() - self.created_at).total_seconds()
@@ -160,7 +160,7 @@ class Alert(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.now, description="Alert timestamp")
     resolved: bool = Field(False, description="Whether alert is resolved")
     resolution_details: Optional[str] = Field(None, description="Resolution details")
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert alert to dictionary for storage"""
         return {
@@ -181,9 +181,9 @@ class MarketDataRequest(BaseModel):
     max_age_seconds: float = Field(1.0, description="Maximum age of cached data to accept")
     validation_tier: ValidationTier = Field(ValidationTier.FAST, description="Required validation tier")
     priority: int = Field(1, description="Request priority (1=highest, 5=lowest)")
-    
+
     model_config = {"use_enum_values": True}
-    
+
     @field_validator('symbols')
     @classmethod
     def validate_symbols(cls, v):
@@ -197,7 +197,7 @@ class MarketDataRequest(BaseModel):
 class SubscriptionRequest(BaseModel):
     """Subscription request model"""
     symbols: List[str] = Field(..., description="List of symbols to subscribe to")
-    
+
     @field_validator('symbols')
     @classmethod
     def validate_symbols(cls, v):
@@ -219,11 +219,11 @@ class MarketDataResponse(BaseModel):
     cache_hit_rate: float = Field(..., description="Cache hit rate for this request")
     processing_time_ms: float = Field(..., description="Total processing time in milliseconds")
     timestamp: datetime = Field(default_factory=datetime.now, description="Response timestamp")
-    
+
     def get_missing_symbols(self) -> List[str]:
         """Get symbols that were requested but not returned"""
         return list(set(self.symbols_requested) - set(self.symbols_returned))
-    
+
     def get_success_rate(self) -> float:
         """Calculate success rate (symbols returned / symbols requested)"""
         if not self.symbols_requested:

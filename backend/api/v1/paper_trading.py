@@ -1,4 +1,4 @@
-"""
+﻿"""
 Paper Trading API Endpoints
 RESTful API for paper trading functionality
 """
@@ -31,7 +31,7 @@ async def place_paper_order(
 ) -> Dict[str, Any]:
     """
     Place a paper trading order
-    
+
     - Simulates realistic order execution with market impact
     - Includes slippage, latency, and partial fill simulation
     - Updates virtual portfolio
@@ -46,15 +46,15 @@ async def place_paper_order(
             price=order_request.price,
             user_id=current_user
         )
-        
+
         # Execute paper order
         result = await paper_trading_engine.execute_order(order, current_user)
-        
+
         if not result['success']:
             raise HTTPException(status_code=400, detail=result.get('error', 'Order execution failed'))
-        
+
         return result
-        
+
     except Exception as e:
         logger.error(f"Paper order placement failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -66,7 +66,7 @@ async def get_paper_portfolio(
 ) -> Dict[str, Any]:
     """
     Get current paper trading portfolio
-    
+
     - Returns virtual portfolio with positions and P&L
     - Includes unrealized P&L calculations
     - Shows recent order history
@@ -74,7 +74,7 @@ async def get_paper_portfolio(
     try:
         portfolio = await paper_trading_engine.get_portfolio(current_user)
         return portfolio
-        
+
     except Exception as e:
         logger.error(f"Failed to get paper portfolio: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -86,7 +86,7 @@ async def get_performance_analytics(
 ) -> Dict[str, Any]:
     """
     Get paper trading performance analytics
-    
+
     - Returns comprehensive performance metrics
     - Includes win rate, risk-reward ratio, P&L statistics
     - Shows simulation accuracy metrics
@@ -94,7 +94,7 @@ async def get_performance_analytics(
     try:
         analytics = await paper_trading_engine.get_performance_analytics(current_user)
         return analytics
-        
+
     except Exception as e:
         logger.error(f"Failed to get performance analytics: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -107,7 +107,7 @@ async def get_historical_performance(
 ) -> Dict[str, Any]:
     """
     Get historical paper trading performance
-    
+
     - Returns daily P&L and trade statistics
     - Configurable time period (1-365 days)
     - Includes cumulative performance metrics
@@ -115,7 +115,7 @@ async def get_historical_performance(
     try:
         history = await paper_trading_engine.get_historical_performance(current_user, days)
         return history
-        
+
     except Exception as e:
         logger.error(f"Failed to get historical performance: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -127,7 +127,7 @@ async def reset_paper_portfolio(
 ) -> Dict[str, Any]:
     """
     Reset paper trading portfolio to initial state
-    
+
     - Clears all positions and order history
     - Resets balance to ₹5 lakh
     - Maintains historical data for analysis
@@ -135,7 +135,7 @@ async def reset_paper_portfolio(
     try:
         result = await paper_trading_engine.reset_portfolio(current_user)
         return result
-        
+
     except Exception as e:
         logger.error(f"Failed to reset paper portfolio: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -148,7 +148,7 @@ async def switch_trading_mode(
 ) -> Dict[str, Any]:
     """
     Switch between paper and live trading modes
-    
+
     - Requires verification for LIVE mode switch
     - Maintains data continuity between modes
     - Implements safety checks and confirmations
@@ -160,7 +160,7 @@ async def switch_trading_mode(
                 "success": False,
                 "message": f"Already in {mode_switch.from_mode} mode"
             }
-        
+
         # Check if switching to LIVE mode
         if mode_switch.to_mode == "LIVE":
             # Require verification
@@ -176,10 +176,10 @@ async def switch_trading_mode(
                         "4. Confirm with phrase 'ENABLE LIVE TRADING'"
                     ]
                 }
-            
+
             # TODO: Implement actual verification logic
             # This would integrate with the security safeguards
-            
+
         # Perform mode switch
         # This would integrate with MultiAPIManager
         result = {
@@ -189,11 +189,11 @@ async def switch_trading_mode(
             "message": f"Successfully switched to {mode_switch.to_mode} mode",
             "timestamp": datetime.now().isoformat()
         }
-        
+
         logger.info(f"User {current_user} switched from {mode_switch.from_mode} to {mode_switch.to_mode}")
-        
+
         return result
-        
+
     except Exception as e:
         logger.error(f"Mode switch failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -205,7 +205,7 @@ async def get_current_mode(
 ) -> Dict[str, Any]:
     """
     Get current trading mode
-    
+
     - Returns current mode (PAPER/LIVE)
     - Includes mode-specific settings
     - Shows available features for current mode
@@ -230,7 +230,7 @@ async def get_current_mode(
             },
             "timestamp": datetime.now().isoformat()
         }
-        
+
     except Exception as e:
         logger.error(f"Failed to get current mode: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -244,17 +244,17 @@ async def get_paper_orders(
 ) -> Dict[str, Any]:
     """
     Get paper trading order history
-    
+
     - Returns paginated order history
     - Includes execution details and slippage
     - Sortable by date, symbol, P&L
     """
     try:
         portfolio = paper_trading_engine.get_or_create_portfolio(current_user)
-        
+
         # Get orders with pagination
         orders = portfolio.orders[offset:offset + limit]
-        
+
         return {
             "orders": orders,
             "total": len(portfolio.orders),
@@ -263,7 +263,7 @@ async def get_paper_orders(
             "mode": "PAPER",
             "timestamp": datetime.now().isoformat()
         }
-        
+
     except Exception as e:
         logger.error(f"Failed to get paper orders: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -275,20 +275,20 @@ async def get_paper_positions(
 ) -> Dict[str, Any]:
     """
     Get current paper trading positions
-    
+
     - Returns open positions with P&L
     - Includes unrealized P&L calculations
     - Shows margin usage and available margin
     """
     try:
         portfolio = await paper_trading_engine.get_portfolio(current_user)
-        
+
         # Filter for open positions only
         open_positions = {
             symbol: pos for symbol, pos in portfolio['positions'].items()
             if pos['quantity'] > 0
         }
-        
+
         return {
             "positions": open_positions,
             "total_positions": len(open_positions),
@@ -297,7 +297,7 @@ async def get_paper_positions(
             "mode": "PAPER",
             "timestamp": datetime.now().isoformat()
         }
-        
+
     except Exception as e:
         logger.error(f"Failed to get paper positions: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -309,14 +309,14 @@ async def get_simulation_accuracy(
 ) -> Dict[str, Any]:
     """
     Get paper trading simulation accuracy metrics
-    
+
     - Returns current simulation accuracy (target: 95%)
     - Shows accuracy breakdown by component
     - Includes calibration status and history
     """
     try:
         accuracy_report = paper_trading_engine.simulation_framework.get_accuracy_report()
-        
+
         return {
             "accuracy_metrics": accuracy_report,
             "target_accuracy": 0.95,
@@ -324,7 +324,7 @@ async def get_simulation_accuracy(
             "mode": "PAPER",
             "timestamp": datetime.now().isoformat()
         }
-        
+
     except Exception as e:
         logger.error(f"Failed to get simulation accuracy: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

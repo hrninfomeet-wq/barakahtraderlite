@@ -1,4 +1,4 @@
-"""
+﻿"""
 Paper Trading Deployment Service
 Enables direct strategy deployment from backtesting to paper trading
 """
@@ -15,13 +15,13 @@ from services.strategy_validator import strategy_validator
 
 class PaperTradingDeployer:
     """Deploys backtested strategies to paper trading with validation"""
-    
+
     def __init__(self):
         """Initialize paper trading deployer"""
         self.paper_engine = PaperTradingEngine()
         self.active_strategies: Dict[str, OptionsStrategy] = {}
         logger.info("Paper Trading Deployer initialized")
-        
+
     async def deploy_strategy(
         self,
         strategy: OptionsStrategy,
@@ -30,12 +30,12 @@ class PaperTradingDeployer:
     ) -> Dict[str, Any]:
         """
         Deploy strategy from backtest to paper trading (AC2.3.4)
-        
+
         Args:
             strategy: Strategy to deploy
             backtest_result: Backtest results for validation
             min_confidence: Minimum confidence level required
-            
+
         Returns:
             Deployment status and details
         """
@@ -46,39 +46,39 @@ class PaperTradingDeployer:
                     'status': 'failed',
                     'reason': 'System not in paper trading mode'
                 }
-                
+
             # Validate backtest results meet criteria
             validation = await self._validate_backtest_results(
                 backtest_result,
                 min_confidence
             )
-            
+
             if not validation['passed']:
                 return {
                     'status': 'failed',
                     'reason': validation['reason'],
                     'metrics': validation['metrics']
                 }
-                
+
             # Validate strategy configuration
             strategy_validation = await strategy_validator.validate_strategy(strategy)
-            
+
             if not strategy_validation.is_valid:
                 return {
                     'status': 'failed',
                     'reason': 'Strategy validation failed',
                     'errors': strategy_validation.errors
                 }
-                
+
             # Deploy strategy to paper trading
             deployment_id = await self._deploy_to_paper(strategy)
-            
+
             # Register active strategy
             self.active_strategies[deployment_id] = strategy
-            
+
             logger.info(f"Strategy {strategy.name} deployed to paper trading. "
                        f"ID: {deployment_id}")
-            
+
             return {
                 'status': 'success',
                 'deployment_id': deployment_id,
@@ -92,21 +92,21 @@ class PaperTradingDeployer:
                     'max_drawdown': backtest_result.max_drawdown
                 }
             }
-            
+
         except Exception as e:
             logger.error(f"Strategy deployment failed: {str(e)}")
             return {
                 'status': 'error',
                 'reason': str(e)
             }
-            
+
     async def _validate_trading_mode(self) -> bool:
         """Validate system is in paper trading mode"""
         # Check current trading mode
         # This would interface with the multi-API manager
         # For now, assuming paper mode check
         return True  # Placeholder - implement actual mode check
-        
+
     async def _validate_backtest_results(
         self,
         result: BacktestResult,
@@ -120,7 +120,7 @@ class PaperTradingDeployer:
             'max_drawdown': result.max_drawdown,
             'total_trades': result.total_trades
         }
-        
+
         # Check minimum criteria
         if result.sharpe_ratio < 0.5:
             return {
@@ -128,28 +128,28 @@ class PaperTradingDeployer:
                 'reason': f'Sharpe ratio too low: {result.sharpe_ratio:.2f} < 0.5',
                 'metrics': metrics
             }
-            
+
         if result.win_rate < 40:
             return {
                 'passed': False,
                 'reason': f'Win rate too low: {result.win_rate:.1f}% < 40%',
                 'metrics': metrics
             }
-            
+
         if result.max_drawdown > 20:
             return {
                 'passed': False,
                 'reason': f'Max drawdown too high: {result.max_drawdown:.1f}% > 20%',
                 'metrics': metrics
             }
-            
+
         if result.total_trades < 10:
             return {
                 'passed': False,
                 'reason': f'Insufficient trades: {result.total_trades} < 10',
                 'metrics': metrics
             }
-            
+
         # Calculate confidence score
         confidence_score = (
             (result.sharpe_ratio / 2.0) * 0.3 +  # Sharpe contribution
@@ -157,34 +157,34 @@ class PaperTradingDeployer:
             (min(result.profit_factor / 2.0, 1.0)) * 0.2 +  # Profit factor
             ((20 - result.max_drawdown) / 20.0) * 0.2  # Drawdown inverse
         )
-        
+
         if confidence_score < min_confidence:
             return {
                 'passed': False,
                 'reason': f'Confidence score too low: {confidence_score:.2f} < {min_confidence}',
                 'metrics': metrics
             }
-            
+
         return {
             'passed': True,
             'confidence_score': confidence_score,
             'metrics': metrics
         }
-        
+
     async def _deploy_to_paper(self, strategy: OptionsStrategy) -> str:
         """Deploy strategy to paper trading engine"""
         # Generate deployment ID
         deployment_id = f"DEPLOY_{strategy.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        
+
         # Initialize paper trading for this strategy
         await self.paper_engine.initialize()
-        
+
         # Register strategy with paper engine
         # This would set up the strategy for automated execution
         # For now, returning deployment ID
-        
+
         return deployment_id
-        
+
     async def execute_strategy_trade(
         self,
         deployment_id: str,
@@ -196,9 +196,9 @@ class PaperTradingDeployer:
                 'status': 'error',
                 'reason': 'Strategy not deployed'
             }
-            
+
         strategy = self.active_strategies[deployment_id]
-        
+
         # Create order from signal
         order = Order(
             symbol=signal['symbol'],
@@ -207,17 +207,17 @@ class PaperTradingDeployer:
             price=signal.get('price'),
             user_id=f"strategy_{deployment_id}"
         )
-        
+
         # Execute via paper trading engine
         result = await self.paper_engine.execute_order(order, f"strategy_{deployment_id}")
-        
+
         return {
             'status': 'executed',
             'order_id': result['order_id'],
             'deployment_id': deployment_id,
             'is_paper_trade': True
         }
-        
+
     async def stop_strategy(self, deployment_id: str) -> Dict[str, Any]:
         """Stop an active strategy"""
         if deployment_id not in self.active_strategies:
@@ -225,21 +225,21 @@ class PaperTradingDeployer:
                 'status': 'error',
                 'reason': 'Strategy not found'
             }
-            
+
         # Close all positions for this strategy
         # This would interface with paper trading engine
-        
+
         # Remove from active strategies
         del self.active_strategies[deployment_id]
-        
+
         logger.info(f"Strategy {deployment_id} stopped")
-        
+
         return {
             'status': 'stopped',
             'deployment_id': deployment_id,
             'timestamp': datetime.now().isoformat()
         }
-        
+
     async def get_strategy_performance(
         self,
         deployment_id: str
@@ -250,10 +250,10 @@ class PaperTradingDeployer:
                 'status': 'error',
                 'reason': 'Strategy not found'
             }
-            
+
         # Get performance from paper trading engine
         # This would fetch real-time metrics
-        
+
         return {
             'status': 'success',
             'deployment_id': deployment_id,
@@ -268,3 +268,6 @@ class PaperTradingDeployer:
 
 # Create singleton instance
 paper_trading_deployer = PaperTradingDeployer()
+
+
+

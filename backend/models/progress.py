@@ -1,4 +1,4 @@
-"""
+﻿"""
 User progress and assessment models for F&O Educational Learning System
 """
 from enum import Enum
@@ -31,7 +31,7 @@ class CompletionStatus(str, Enum):
 class ModuleProgress(BaseModel):
     """Progress for a single module"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     id: str = Field(..., description="Unique progress ID")
     user_id: str = Field(..., description="User ID")
     module_id: str = Field(..., description="Module ID")
@@ -42,14 +42,14 @@ class ModuleProgress(BaseModel):
     started_at: Optional[datetime] = Field(None, description="Start timestamp")
     completed_at: Optional[datetime] = Field(None, description="Completion timestamp")
     notes: Optional[List[str]] = Field(default_factory=list, description="User notes")
-    
+
     @field_validator('progress_percentage')
     @classmethod
     def validate_progress(cls, v):
         if v < 0 or v > 100:
             raise ValueError('Progress must be between 0 and 100')
         return v
-    
+
     @field_validator('time_spent_minutes')
     @classmethod
     def validate_time_spent(cls, v):
@@ -60,7 +60,7 @@ class ModuleProgress(BaseModel):
 class Assessment(BaseModel):
     """Assessment configuration"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     id: str = Field(..., description="Assessment ID")
     module_id: str = Field(..., description="Associated module ID")
     assessment_type: AssessmentType = Field(..., description="Type of assessment")
@@ -69,14 +69,14 @@ class Assessment(BaseModel):
     time_limit_minutes: Optional[int] = Field(None, description="Time limit in minutes")
     attempts_allowed: int = Field(default=3, description="Number of attempts allowed")
     difficulty_level: int = Field(..., description="Difficulty level (1-5)")
-    
+
     @field_validator('passing_score')
     @classmethod
     def validate_passing_score(cls, v):
         if v < 0 or v > 100:
             raise ValueError('Passing score must be between 0 and 100')
         return v
-    
+
     @field_validator('difficulty_level')
     @classmethod
     def validate_difficulty(cls, v):
@@ -87,7 +87,7 @@ class Assessment(BaseModel):
 class AssessmentResult(BaseModel):
     """Assessment result"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     id: str = Field(..., description="Result ID")
     user_id: str = Field(..., description="User ID")
     assessment_id: str = Field(..., description="Assessment ID")
@@ -97,7 +97,7 @@ class AssessmentResult(BaseModel):
     time_taken_minutes: int = Field(..., description="Time taken in minutes")
     completed_at: datetime = Field(default_factory=datetime.now, description="Completion timestamp")
     feedback: Optional[Dict[str, Any]] = Field(None, description="Detailed feedback")
-    
+
     @field_validator('score')
     @classmethod
     def validate_score(cls, v):
@@ -108,7 +108,7 @@ class AssessmentResult(BaseModel):
 class Certificate(BaseModel):
     """Learning certificate"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     id: str = Field(..., description="Certificate ID")
     user_id: str = Field(..., description="User ID")
     certificate_type: CertificateType = Field(..., description="Type of certificate")
@@ -122,7 +122,7 @@ class Certificate(BaseModel):
 class UserProgress(BaseModel):
     """User learning progress"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     user_id: str = Field(..., description="User ID")
     total_modules_completed: int = Field(default=0, description="Total modules completed")
     total_assessments_passed: int = Field(default=0, description="Total assessments passed")
@@ -133,14 +133,14 @@ class UserProgress(BaseModel):
     learning_paths: List[Dict[str, Any]] = Field(default_factory=list, description="Active learning paths")
     certificates: List[Certificate] = Field(default_factory=list, description="Earned certificates")
     recommendations: List[str] = Field(default_factory=list, description="Personalized recommendations")
-    
+
     @field_validator('overall_progress_percentage')
     @classmethod
     def validate_progress(cls, v):
         if v < 0 or v > 100:
             raise ValueError('Progress must be between 0 and 100')
         return v
-    
+
     @field_validator('current_level')
     @classmethod
     def validate_level(cls, v):
@@ -151,21 +151,21 @@ class UserProgress(BaseModel):
 class ProgressUpdateRequest(BaseModel):
     """Request to update progress"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     user_id: str = Field(..., description="User ID")
     module_id: str = Field(..., description="Module ID")
     progress_percentage: float = Field(..., description="New progress percentage")
     time_spent_minutes: int = Field(..., description="Time spent in this session")
     status: Optional[CompletionStatus] = Field(None, description="New status")
     notes: Optional[str] = Field(None, description="Progress notes")
-    
+
     @field_validator('progress_percentage')
     @classmethod
     def validate_progress(cls, v):
         if v < 0 or v > 100:
             raise ValueError('Progress must be between 0 and 100')
         return v
-    
+
     @field_validator('time_spent_minutes')
     @classmethod
     def validate_time_spent(cls, v):
@@ -176,7 +176,7 @@ class ProgressUpdateRequest(BaseModel):
 class LearningPath(BaseModel):
     """Personalized learning path"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     id: str = Field(..., description="Path ID")
     user_id: str = Field(..., description="User ID")
     name: str = Field(..., description="Path name")
@@ -186,7 +186,7 @@ class LearningPath(BaseModel):
     progress_percentage: float = Field(default=0.0, description="Path progress")
     created_at: datetime = Field(default_factory=datetime.now, description="Creation timestamp")
     updated_at: datetime = Field(default_factory=datetime.now, description="Last update timestamp")
-    
+
     @field_validator('progress_percentage')
     @classmethod
     def validate_progress(cls, v):
@@ -197,7 +197,7 @@ class LearningPath(BaseModel):
 class Recommendation(BaseModel):
     """Learning recommendation"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     id: str = Field(..., description="Recommendation ID")
     user_id: str = Field(..., description="User ID")
     recommendation_type: str = Field(..., description="Type of recommendation")
@@ -205,10 +205,13 @@ class Recommendation(BaseModel):
     priority: int = Field(..., description="Priority level (1-5)")
     reasoning: str = Field(..., description="Reason for recommendation")
     created_at: datetime = Field(default_factory=datetime.now, description="Creation timestamp")
-    
+
     @field_validator('priority')
     @classmethod
     def validate_priority(cls, v):
         if v < 1 or v > 5:
             raise ValueError('Priority must be between 1 and 5')
         return v
+
+
+

@@ -1,24 +1,22 @@
-"""
+﻿"""
 Paper Trading Engine Implementation
 Provides realistic paper trading simulation with market impact modeling
 """
-import asyncio
 import uuid
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
+from typing import Dict, Any, List
 from dataclasses import dataclass, field
-import random
 from decimal import Decimal
 from loguru import logger
 
-from models.trading import Order, OrderType, OrderStatus, TradingMode
+from models.trading import Order
 from services.simulation_accuracy_framework import (
     SimulationAccuracyFramework,
     SimulationConfig,
     MarketSimulator
 )
 from services.market_data_service import MarketDataPipeline
-from core.database import get_db_session
+# from core.database import get_db_session  # Unused
 
 
 @dataclass
@@ -31,7 +29,7 @@ class VirtualPortfolio:
     total_pnl: Decimal = Decimal('0')
     margin_used: Decimal = Decimal('0')
     margin_available: Decimal = Decimal('500000')
-    
+
     def update_position(self, symbol: str, quantity: int, price: Decimal, side: str):
         """Update position after trade execution"""
         if symbol not in self.positions:
@@ -41,35 +39,35 @@ class VirtualPortfolio:
                 'realized_pnl': Decimal('0'),
                 'unrealized_pnl': Decimal('0')
             }
-        
+
         pos = self.positions[symbol]
-        
+
         if side == 'BUY':
             # Calculate new average price
             total_value = (pos['quantity'] * pos['avg_price']) + (quantity * price)
             new_quantity = pos['quantity'] + quantity
             pos['avg_price'] = total_value / new_quantity if new_quantity != 0 else Decimal('0')
             pos['quantity'] = new_quantity
-            
+
             # Update cash balance
             self.cash_balance -= (quantity * price)
-            
+
         else:  # SELL
             if pos['quantity'] >= quantity:
                 # Calculate realized P&L
                 realized_pnl = (price - pos['avg_price']) * quantity
                 pos['realized_pnl'] += realized_pnl
                 self.total_pnl += realized_pnl
-                
+
                 # Update position
                 pos['quantity'] -= quantity
-                
+
                 # Update cash balance
                 self.cash_balance += (quantity * price)
-        
+
         # Update margin
         self._update_margin()
-    
+
     def _update_margin(self):
         """Update margin calculations"""
         # Simplified margin calculation (20% of position value)
@@ -77,10 +75,10 @@ class VirtualPortfolio:
         for symbol, pos in self.positions.items():
             if pos['quantity'] > 0:
                 total_position_value += pos['quantity'] * pos['avg_price']
-        
+
         self.margin_used = total_position_value * Decimal('0.2')  # 20% margin
         self.margin_available = self.cash_balance - self.margin_used
-    
+
     def get_portfolio_summary(self) -> Dict:
         """Get portfolio summary"""
         return {
@@ -95,7 +93,7 @@ class VirtualPortfolio:
 
 class PaperTradingEngine:
     """Main paper trading engine with realistic simulation"""
-    
+
     def __init__(self):
         self.simulation_framework = SimulationAccuracyFramework()
         self.market_simulator = MarketSimulator(SimulationConfig())
@@ -103,7 +101,7 @@ class PaperTradingEngine:
         self.portfolios: Dict[str, VirtualPortfolio] = {}
         self.order_history: List[Dict] = []
         self.is_initialized = False
-        
+
     async def initialize(self):
         """Initialize paper trading engine"""
         if not self.is_initialized:
@@ -111,21 +109,21 @@ class PaperTradingEngine:
             await self.market_data_pipeline.initialize()
             self.is_initialized = True
             logger.info("Paper Trading Engine initialized")
-    
+
     def get_or_create_portfolio(self, user_id: str) -> VirtualPortfolio:
         """Get or create virtual portfolio for user"""
         if user_id not in self.portfolios:
             self.portfolios[user_id] = VirtualPortfolio()
             logger.info(f"Created new virtual portfolio for user {user_id}")
         return self.portfolios[user_id]
-    
+
     async def execute_order(self, order: Order, user_id: str) -> Dict[str, Any]:
         """Execute order in paper trading mode with realistic simulation"""
         if not self.is_initialized:
             await self.initialize()
-        
+
         portfolio = self.get_or_create_portfolio(user_id)
-        
+
         # Get current market data
         market_data = await self.market_data_pipeline.get_market_data(order.symbol)
         if not market_data or not hasattr(market_data, 'last_price'):
@@ -134,13 +132,13 @@ class PaperTradingEngine:
                 'error': 'Market data not available',
                 'order_id': None
             }
-        
+
         # Simulate execution with realistic market impact
         execution_result = await self.simulation_framework.simulate_order_execution(
             order=order,
             current_price=market_data.last_price
         )
-        
+
         # Create order response
         order_id = f"PAPER_{uuid.uuid4().hex[:8].upper()}"
         order_response = {
@@ -157,7 +155,7 @@ class PaperTradingEngine:
             'is_paper_trade': True,
             'mode': 'PAPER'
         }
-        
+
         # Update portfolio
         portfolio.update_position(
             symbol=order.symbol,
@@ -165,28 +163,28 @@ class PaperTradingEngine:
             price=Decimal(str(execution_result['execution_price'])),
             side=order.side
         )
-        
+
         # Store order in history
         self.order_history.append(order_response)
         portfolio.orders.append(order_response)
-        
+
         # Log execution
         logger.info(
             f"Paper order executed: {order_id} - {order.symbol} "
             f"{order.quantity}@{execution_result['execution_price']:.2f} "
             f"(slippage: {execution_result['slippage']:.4f})"
         )
-        
+
         return {
             'success': True,
             'order': order_response,
             'portfolio_summary': portfolio.get_portfolio_summary()
         }
-    
+
     async def get_portfolio(self, user_id: str) -> Dict[str, Any]:
         """Get user's paper trading portfolio"""
         portfolio = self.get_or_create_portfolio(user_id)
-        
+
         # Calculate unrealized P&L for open positions
         for symbol, position in portfolio.positions.items():
             if position['quantity'] > 0:
@@ -196,7 +194,7 @@ class PaperTradingEngine:
                     position['unrealized_pnl'] = (
                         (current_price - position['avg_price']) * position['quantity']
                     )
-        
+
         return {
             'user_id': user_id,
             'mode': 'PAPER',
@@ -205,11 +203,11 @@ class PaperTradingEngine:
             'recent_orders': portfolio.orders[-10:] if portfolio.orders else [],
             'timestamp': datetime.now().isoformat()
         }
-    
+
     async def get_performance_analytics(self, user_id: str) -> Dict[str, Any]:
         """Get paper trading performance analytics"""
         portfolio = self.get_or_create_portfolio(user_id)
-        
+
         if not portfolio.orders:
             return {
                 'user_id': user_id,
@@ -217,14 +215,14 @@ class PaperTradingEngine:
                 'message': 'No trading activity yet',
                 'timestamp': datetime.now().isoformat()
             }
-        
+
         # Calculate performance metrics
         total_trades = len(portfolio.orders)
         winning_trades = len([o for o in portfolio.pnl_history if o.get('pnl', 0) > 0])
         losing_trades = len([o for o in portfolio.pnl_history if o.get('pnl', 0) < 0])
-        
+
         win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0
-        
+
         # Calculate average P&L
         avg_profit = (
             sum([o['pnl'] for o in portfolio.pnl_history if o.get('pnl', 0) > 0]) / winning_trades
@@ -234,13 +232,13 @@ class PaperTradingEngine:
             sum([o['pnl'] for o in portfolio.pnl_history if o.get('pnl', 0) < 0]) / losing_trades
             if losing_trades > 0 else 0
         )
-        
+
         # Risk-reward ratio
         risk_reward = abs(avg_profit / avg_loss) if avg_loss != 0 else float('inf')
-        
+
         # Get simulation accuracy
         accuracy_report = self.simulation_framework.get_accuracy_report()
-        
+
         return {
             'user_id': user_id,
             'mode': 'PAPER',
@@ -261,41 +259,41 @@ class PaperTradingEngine:
             'simulation_accuracy': accuracy_report,
             'timestamp': datetime.now().isoformat()
         }
-    
+
     async def reset_portfolio(self, user_id: str) -> Dict[str, Any]:
         """Reset paper trading portfolio to initial state"""
         self.portfolios[user_id] = VirtualPortfolio()
-        
+
         logger.info(f"Reset paper trading portfolio for user {user_id}")
-        
+
         return {
             'success': True,
             'message': 'Paper trading portfolio reset successfully',
             'portfolio': self.portfolios[user_id].get_portfolio_summary(),
             'timestamp': datetime.now().isoformat()
         }
-    
+
     async def get_historical_performance(self, user_id: str, days: int = 30) -> Dict[str, Any]:
         """Get historical paper trading performance"""
         portfolio = self.get_or_create_portfolio(user_id)
-        
+
         # Filter orders by date
         cutoff_date = datetime.now() - timedelta(days=days)
         recent_orders = [
-            o for o in portfolio.orders 
+            o for o in portfolio.orders
             if datetime.fromisoformat(o['timestamp']) > cutoff_date
         ]
-        
+
         # Group by date for daily P&L
         daily_pnl = {}
         for order in recent_orders:
             date = datetime.fromisoformat(order['timestamp']).date()
             if date not in daily_pnl:
                 daily_pnl[date] = {'trades': 0, 'pnl': 0}
-            
+
             daily_pnl[date]['trades'] += 1
             # Note: Actual P&L calculation would need position tracking
-        
+
         return {
             'user_id': user_id,
             'mode': 'PAPER',
