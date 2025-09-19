@@ -216,3 +216,6 @@ python -c "import sys; sys.path.insert(0, '.'); from backend.services.paper_trad
 
 *Complete this checklist before every development task to ensure efficient execution.*
 
+
+
+

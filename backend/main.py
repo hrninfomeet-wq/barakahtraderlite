@@ -1,8 +1,8 @@
-"""
+﻿"""
 FastAPI Application Entry Point
 Enhanced AI-Powered Personal Trading Engine Backend
 """
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import uvicorn
@@ -27,20 +27,20 @@ api_manager = None
 async def lifespan(app: FastAPI):
     """Application lifespan management"""
     global db_manager, audit_logger, api_manager
-    
+
     # Startup
     logger.info("Starting Enhanced AI-Powered Personal Trading Engine Backend")
-    
+
     try:
         # Initialize database
         db_manager = DatabaseManager()
         db_manager.initialize()
         logger.info("Database initialized successfully")
-        
+
         # Initialize audit logger
         audit_logger = AuditLogger(db_manager)
         logger.info("Audit logger initialized successfully")
-        
+
         # Initialize API manager
         config = {
             "enabled_apis": ["flattrade", "fyers", "upstox", "alice_blue"],
@@ -67,20 +67,20 @@ async def lifespan(app: FastAPI):
                 "timeout": 30
             }
         }
-        
+
         api_manager = MultiAPIManager(config, audit_logger)
         await api_manager.initialize_apis()
         logger.info("Multi-API manager initialized successfully")
-        
+
     except Exception as e:
         logger.error(f"Failed to initialize application: {e}")
         raise
-    
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down Enhanced AI-Powered Personal Trading Engine Backend")
-    
+
     try:
         if api_manager:
             await api_manager.shutdown()
@@ -142,7 +142,7 @@ async def health_check():
 if __name__ == "__main__":
     # Configure logging
     logger.add("logs/trading_engine.log", rotation="1 day", retention="7 days")
-    
+
     # Run the application
     uvicorn.run(
         "main:app",

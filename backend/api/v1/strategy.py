@@ -1,4 +1,4 @@
-"""
+﻿"""
 Strategy and Backtesting API Endpoints
 """
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
@@ -45,14 +45,14 @@ async def run_backtest(
     try:
         # Get historical data (placeholder - would fetch from data pipeline)
         historical_data = pd.DataFrame()  # This would be fetched from Story 1.3 pipeline
-        
+
         # Run backtest
         result = await backtest_engine.run_backtest(
             strategy,
             historical_data,
             initial_capital
         )
-        
+
         return {
             "strategy_id": result.strategy_id,
             "total_trades": result.total_trades,
@@ -79,14 +79,14 @@ async def run_monte_carlo(
     try:
         # Get historical data
         historical_data = pd.DataFrame()  # Placeholder
-        
+
         # Run simulation (could be background task for large simulations)
         result = await monte_carlo_simulator.run_simulation(
             strategy,
             historical_data,
             num_simulations
         )
-        
+
         return {
             "simulations": result.simulations,
             "mean_return": result.mean_return,
@@ -114,7 +114,7 @@ async def optimize_strategy(
     try:
         # Get historical data
         historical_data = pd.DataFrame()  # Placeholder
-        
+
         # Run optimization
         result = await walk_forward_optimizer.optimize(
             strategy,
@@ -122,7 +122,7 @@ async def optimize_strategy(
             parameter_ranges,
             num_windows=num_windows
         )
-        
+
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -146,14 +146,14 @@ async def deploy_to_paper_trading(
         backtest_result.profit_factor = 1.8
         backtest_result.max_drawdown = 15
         backtest_result.total_trades = 50
-        
+
         # Deploy strategy
         result = await paper_trading_deployer.deploy_strategy(
             strategy,
             backtest_result,
             min_confidence
         )
-        
+
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -194,12 +194,12 @@ async def get_strategy_recommendations(
     try:
         # This would analyze current market conditions and recommend strategies
         recommendations = []
-        
+
         # Placeholder logic
         if market_conditions:
             volatility = market_conditions.get('volatility', 'medium')
             trend = market_conditions.get('trend', 'neutral')
-            
+
             if volatility == 'high':
                 recommendations.append({
                     'strategy': 'Iron Condor',
@@ -212,7 +212,10 @@ async def get_strategy_recommendations(
                     'reason': 'Bullish trend with defined risk',
                     'confidence': 0.75
                 })
-                
+
         return recommendations
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+

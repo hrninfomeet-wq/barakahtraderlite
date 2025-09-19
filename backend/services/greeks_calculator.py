@@ -1,4 +1,4 @@
-"""
+﻿"""
 Greeks Calculator Service for F&O Educational Learning System
 """
 import numpy as np
@@ -13,21 +13,21 @@ from models.education import GreekType
 
 class GreeksCalculator:
     """Real-time options Greeks calculation engine"""
-    
+
     def __init__(self, risk_free_rate: float = 0.06):
         """
         Initialize Greeks calculator
-        
+
         Args:
             risk_free_rate: Risk-free interest rate (default 6% for India)
         """
         self.risk_free_rate = risk_free_rate
         logger.info(f"GreeksCalculator initialized with risk-free rate: {risk_free_rate}")
-    
+
     def calculate_delta(self, S: float, K: float, T: float, r: float, sigma: float, option_type: str) -> float:
         """
         Calculate option delta using Black-Scholes model
-        
+
         Args:
             S: Current stock price
             K: Strike price
@@ -35,60 +35,60 @@ class GreeksCalculator:
             r: Risk-free interest rate
             sigma: Volatility
             option_type: 'call' or 'put'
-            
+
         Returns:
             Delta value
         """
         try:
             if T <= 0:
                 return 1.0 if option_type == 'call' else -1.0
-            
+
             d1 = (np.log(S/K) + (r + 0.5*sigma**2)*T) / (sigma*np.sqrt(T))
-            
+
             if option_type.lower() == 'call':
                 delta = norm.cdf(d1)
             else:  # put
                 delta = norm.cdf(d1) - 1
-                
+
             logger.debug(f"Delta calculated: {delta} for {option_type} option")
             return float(delta)
-            
+
         except Exception as e:
             logger.error(f"Error calculating delta: {e}")
             return 0.0
-    
+
     def calculate_gamma(self, S: float, K: float, T: float, r: float, sigma: float) -> float:
         """
         Calculate option gamma
-        
+
         Args:
             S: Current stock price
             K: Strike price
             T: Time to expiration (in years)
             r: Risk-free interest rate
             sigma: Volatility
-            
+
         Returns:
             Gamma value
         """
         try:
             if T <= 0:
                 return 0.0
-                
+
             d1 = (np.log(S/K) + (r + 0.5*sigma**2)*T) / (sigma*np.sqrt(T))
             gamma = norm.pdf(d1) / (S * sigma * np.sqrt(T))
-            
+
             logger.debug(f"Gamma calculated: {gamma}")
             return float(gamma)
-            
+
         except Exception as e:
             logger.error(f"Error calculating gamma: {e}")
             return 0.0
-    
+
     def calculate_theta(self, S: float, K: float, T: float, r: float, sigma: float, option_type: str) -> float:
         """
         Calculate option theta (time decay)
-        
+
         Args:
             S: Current stock price
             K: Strike price
@@ -96,64 +96,64 @@ class GreeksCalculator:
             r: Risk-free interest rate
             sigma: Volatility
             option_type: 'call' or 'put'
-            
+
         Returns:
             Theta value (per day)
         """
         try:
             if T <= 0:
                 return 0.0
-                
+
             d1 = (np.log(S/K) + (r + 0.5*sigma**2)*T) / (sigma*np.sqrt(T))
             d2 = d1 - sigma*np.sqrt(T)
-            
+
             # Theta calculation (per day)
-            theta_call = (-S*norm.pdf(d1)*sigma/(2*np.sqrt(T)) - 
+            theta_call = (-S*norm.pdf(d1)*sigma/(2*np.sqrt(T)) -
                          r*K*np.exp(-r*T)*norm.cdf(d2)) / 365
-            theta_put = (-S*norm.pdf(d1)*sigma/(2*np.sqrt(T)) + 
+            theta_put = (-S*norm.pdf(d1)*sigma/(2*np.sqrt(T)) +
                         r*K*np.exp(-r*T)*norm.cdf(-d2)) / 365
-            
+
             theta = theta_call if option_type.lower() == 'call' else theta_put
-            
+
             logger.debug(f"Theta calculated: {theta} for {option_type} option")
             return float(theta)
-            
+
         except Exception as e:
             logger.error(f"Error calculating theta: {e}")
             return 0.0
-    
+
     def calculate_vega(self, S: float, K: float, T: float, r: float, sigma: float) -> float:
         """
         Calculate option vega (volatility sensitivity)
-        
+
         Args:
             S: Current stock price
             K: Strike price
             T: Time to expiration (in years)
             r: Risk-free interest rate
             sigma: Volatility
-            
+
         Returns:
             Vega value (for 1% change in volatility)
         """
         try:
             if T <= 0:
                 return 0.0
-                
+
             d1 = (np.log(S/K) + (r + 0.5*sigma**2)*T) / (sigma*np.sqrt(T))
             vega = S * norm.pdf(d1) * np.sqrt(T) / 100  # For 1% volatility change
-            
+
             logger.debug(f"Vega calculated: {vega}")
             return float(vega)
-            
+
         except Exception as e:
             logger.error(f"Error calculating vega: {e}")
             return 0.0
-    
+
     def calculate_rho(self, S: float, K: float, T: float, r: float, sigma: float, option_type: str) -> float:
         """
         Calculate option rho (interest rate sensitivity)
-        
+
         Args:
             S: Current stock price
             K: Strike price
@@ -161,34 +161,34 @@ class GreeksCalculator:
             r: Risk-free interest rate
             sigma: Volatility
             option_type: 'call' or 'put'
-            
+
         Returns:
             Rho value (for 1% change in interest rate)
         """
         try:
             if T <= 0:
                 return 0.0
-                
+
             d1 = (np.log(S/K) + (r + 0.5*sigma**2)*T) / (sigma*np.sqrt(T))
             d2 = d1 - sigma*np.sqrt(T)
-            
+
             # Rho calculation (for 1% interest rate change)
             if option_type.lower() == 'call':
                 rho = K * T * np.exp(-r*T) * norm.cdf(d2) / 100
             else:  # put
                 rho = -K * T * np.exp(-r*T) * norm.cdf(-d2) / 100
-            
+
             logger.debug(f"Rho calculated: {rho} for {option_type} option")
             return float(rho)
-            
+
         except Exception as e:
             logger.error(f"Error calculating rho: {e}")
             return 0.0
-    
+
     def calculate_all_greeks(self, S: float, K: float, T: float, r: float, sigma: float, option_type: str) -> Dict[str, float]:
         """
         Calculate all Greeks for an option
-        
+
         Args:
             S: Current stock price
             K: Strike price
@@ -196,7 +196,7 @@ class GreeksCalculator:
             r: Risk-free interest rate
             sigma: Volatility
             option_type: 'call' or 'put'
-            
+
         Returns:
             Dictionary containing all Greeks
         """
@@ -208,25 +208,25 @@ class GreeksCalculator:
                 'vega': self.calculate_vega(S, K, T, r, sigma),
                 'rho': self.calculate_rho(S, K, T, r, sigma, option_type)
             }
-            
+
             logger.info(f"All Greeks calculated for {option_type} option")
             return greeks
-            
+
         except Exception as e:
             logger.error(f"Error calculating all Greeks: {e}")
             return {
                 'delta': 0.0, 'gamma': 0.0, 'theta': 0.0, 'vega': 0.0, 'rho': 0.0
             }
-    
+
     def calculate_strategy_greeks(self, strategy: OptionsStrategy, current_price: float, volatility: float) -> GreeksImpact:
         """
         Calculate Greeks for an entire strategy
-        
+
         Args:
             strategy: Options strategy
             current_price: Current underlying price
             volatility: Current volatility
-            
+
         Returns:
             GreeksImpact object with strategy Greeks
         """
@@ -236,19 +236,19 @@ class GreeksCalculator:
             total_theta = 0.0
             total_vega = 0.0
             total_rho = 0.0
-            
+
             for leg in strategy.legs:
                 if leg.instrument_type in ['call', 'put']:
                     # Calculate time to expiration
                     time_to_expiry = (leg.expiry_date - datetime.now()).days / 365.0
-                    
+
                     if time_to_expiry <= 0:
                         continue
-                    
+
                     # Determine position multiplier
                     position_multiplier = 1 if leg.position_type == 'long' else -1
                     quantity_multiplier = leg.quantity * position_multiplier
-                    
+
                     # Calculate Greeks for this leg
                     leg_greeks = self.calculate_all_greeks(
                         float(current_price),
@@ -258,14 +258,14 @@ class GreeksCalculator:
                         volatility,
                         leg.instrument_type
                     )
-                    
+
                     # Add to totals
                     total_delta += leg_greeks['delta'] * quantity_multiplier
                     total_gamma += leg_greeks['gamma'] * quantity_multiplier
                     total_theta += leg_greeks['theta'] * quantity_multiplier
                     total_vega += leg_greeks['vega'] * quantity_multiplier
                     total_rho += leg_greeks['rho'] * quantity_multiplier
-            
+
             # Create Greeks impact object
             greeks_impact = GreeksImpact(
                 strategy_id=strategy.id,
@@ -279,10 +279,10 @@ class GreeksCalculator:
                 theta_exposure=self._analyze_theta_exposure(total_theta),
                 vega_exposure=self._analyze_vega_exposure(total_vega)
             )
-            
+
             logger.info(f"Strategy Greeks calculated for {strategy.name}")
             return greeks_impact
-            
+
         except Exception as e:
             logger.error(f"Error calculating strategy Greeks: {e}")
             return GreeksImpact(
@@ -293,7 +293,7 @@ class GreeksCalculator:
                 vega=Decimal('0'),
                 rho=Decimal('0')
             )
-    
+
     def _analyze_delta_exposure(self, delta: float) -> str:
         """Analyze delta exposure"""
         if delta > 0.5:
@@ -306,7 +306,7 @@ class GreeksCalculator:
             return "Moderate bearish exposure"
         else:
             return "Strong bearish exposure"
-    
+
     def _analyze_gamma_exposure(self, gamma: float) -> str:
         """Analyze gamma exposure"""
         if gamma > 0.01:
@@ -319,7 +319,7 @@ class GreeksCalculator:
             return "Moderate negative gamma"
         else:
             return "High negative gamma - large price movements will reduce P&L"
-    
+
     def _analyze_theta_exposure(self, theta: float) -> str:
         """Analyze theta exposure"""
         if theta < -1.0:
@@ -332,7 +332,7 @@ class GreeksCalculator:
             return "Moderate time benefit"
         else:
             return "High time benefit - gaining value over time"
-    
+
     def _analyze_vega_exposure(self, vega: float) -> str:
         """Analyze vega exposure"""
         if vega > 50:
@@ -345,13 +345,13 @@ class GreeksCalculator:
             return "Moderate negative volatility sensitivity"
         else:
             return "High negative volatility sensitivity - benefits from volatility decreases"
-    
-    def calculate_greeks_scenarios(self, S: float, K: float, T: float, r: float, sigma: float, 
-                                 option_type: str, price_scenarios: List[float], 
+
+    def calculate_greeks_scenarios(self, S: float, K: float, T: float, r: float, sigma: float,
+                                 option_type: str, price_scenarios: List[float],
                                  volatility_scenarios: List[float]) -> Dict[str, List[Dict[str, Any]]]:
         """
         Calculate Greeks under different scenarios
-        
+
         Args:
             S: Current stock price
             K: Strike price
@@ -361,7 +361,7 @@ class GreeksCalculator:
             option_type: 'call' or 'put'
             price_scenarios: List of price scenarios
             volatility_scenarios: List of volatility scenarios
-            
+
         Returns:
             Dictionary with Greeks scenarios
         """
@@ -371,7 +371,7 @@ class GreeksCalculator:
                 'volatility_scenarios': [],
                 'time_scenarios': []
             }
-            
+
             # Price scenarios
             for price in price_scenarios:
                 greeks = self.calculate_all_greeks(price, K, T, r, sigma, option_type)
@@ -380,7 +380,7 @@ class GreeksCalculator:
                     'greeks': greeks,
                     'price_change_percent': (price - S) / S * 100
                 })
-            
+
             # Volatility scenarios
             for vol in volatility_scenarios:
                 greeks = self.calculate_all_greeks(S, K, T, r, vol, option_type)
@@ -389,7 +389,7 @@ class GreeksCalculator:
                     'greeks': greeks,
                     'vol_change_percent': (vol - sigma) / sigma * 100
                 })
-            
+
             # Time scenarios (decay over time)
             time_scenarios = [T * (1 - i/10) for i in range(1, 11)]  # 10% to 100% of original time
             for time in time_scenarios:
@@ -400,21 +400,21 @@ class GreeksCalculator:
                         'greeks': greeks,
                         'days_remaining': int(time * 365)
                     })
-            
+
             logger.info(f"Greeks scenarios calculated for {len(price_scenarios)} price and {len(volatility_scenarios)} volatility scenarios")
             return scenarios
-            
+
         except Exception as e:
             logger.error(f"Error calculating Greeks scenarios: {e}")
             return {'price_scenarios': [], 'volatility_scenarios': [], 'time_scenarios': []}
-    
+
     def get_greeks_education_content(self, greek_type: GreekType) -> Dict[str, Any]:
         """
         Get educational content for specific Greek
-        
+
         Args:
             greek_type: Type of Greek to explain
-            
+
         Returns:
             Educational content dictionary
         """
@@ -490,9 +490,12 @@ class GreeksCalculator:
                 'risk_management': 'Rho is less critical for short-term trading but important for long-term options'
             }
         }
-        
+
         return education_content.get(greek_type, {})
 
 # Global instance
 greeks_calculator = GreeksCalculator()
+
+
+
 

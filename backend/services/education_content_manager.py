@@ -1,4 +1,4 @@
-"""
+﻿"""
 Education Content Manager Service
 Manages educational content for F&O learning system
 """
@@ -7,20 +7,20 @@ from loguru import logger
 from datetime import datetime
 
 from models.education import (
-    EducationalContent, ContentType, DifficultyLevel, 
+    EducationalContent, ContentType, DifficultyLevel,
     ContentUpdateRequest, ContentSearchRequest,
     GreeksTutorial, StrategyGuide, MarketEducation
 )
 
 class EducationContentManager:
     """Manages educational content storage and retrieval"""
-    
+
     def __init__(self):
         """Initialize content manager with sample content"""
         self.content_store: Dict[str, EducationalContent] = {}
         self._load_sample_content()
         logger.info("Education Content Manager initialized")
-    
+
     def _load_sample_content(self):
         """Load comprehensive sample educational content"""
         # Greeks Tutorials
@@ -44,9 +44,9 @@ class EducationContentManager:
             author="System",
             review_status="approved"
         )
-        
+
         # Add more Greeks...
-        
+
         # Strategy Guides
         self.content_store["strategy_long_call"] = EducationalContent(
             id="strategy_long_call",
@@ -71,9 +71,9 @@ class EducationContentManager:
             author="System",
             review_status="approved"
         )
-        
+
         # Add more strategies...
-        
+
         # Market Education
         self.content_store["market_nse_fo"] = EducationalContent(
             id="market_nse_fo",
@@ -96,9 +96,9 @@ class EducationContentManager:
             author="System",
             review_status="approved"
         )
-        
+
         # Add more market topics...
-    
+
     def get_content(self, content_id: str) -> Optional[EducationalContent]:
         """Retrieve specific content"""
         content = self.content_store.get(content_id)
@@ -107,15 +107,15 @@ class EducationContentManager:
             return content
         logger.warning(f"Content not found: {content_id}")
         return None
-    
+
     def update_content(self, request: ContentUpdateRequest) -> EducationalContent:
         """Update existing content"""
         if request.content_id not in self.content_store:
             logger.error(f"Content not found for update: {request.content_id}")
             raise ValueError("Content not found")
-        
+
         content = self.content_store[request.content_id]
-        
+
         if request.title:
             content.title = request.title
         if request.content_data:
@@ -126,56 +126,59 @@ class EducationContentManager:
             content.version = request.version
         if request.review_status:
             content.review_status = request.review_status
-        
+
         content.updated_at = datetime.now()
-        
+
         logger.info(f"Updated content {request.content_id}")
         return content
-    
+
     def search_content(self, request: ContentSearchRequest) -> List[EducationalContent]:
         """Search educational content"""
         results = list(self.content_store.values())
-        
+
         if request.content_type:
             results = [c for c in results if c.content_type == request.content_type]
-        
+
         if request.difficulty_level:
             results = [c for c in results if c.difficulty_level == request.difficulty_level]
-        
+
         if request.search_query:
             query = request.search_query.lower()
             results = [c for c in results if query in c.title.lower() or query in str(c.content_data).lower()]
-        
+
         if request.tags:
             results = [c for c in results if any(tag in c.metadata.get('tags', []) for tag in request.tags)]
-        
+
         # Apply pagination
         return results[request.offset:request.offset + request.limit]
-    
+
     def get_recommended_content(self, user_progress: Dict[str, Any]) -> List[EducationalContent]:
         """Get personalized content recommendations"""
         recommendations = []
-        
+
         # Simple recommendation logic based on progress
         completed = user_progress.get('completed_modules', [])
-        
+
         if "basic_greeks" not in completed:
             rec = self.get_content("greeks_delta")
             if rec:
                 recommendations.append(rec)
-        
+
         if "basic_strategies" not in completed:
             rec = self.get_content("strategy_long_call")
             if rec:
                 recommendations.append(rec)
-        
+
         if "market_basics" not in completed:
             rec = self.get_content("market_nse_fo")
             if rec:
                 recommendations.append(rec)
-        
+
         logger.info(f"Generated {len(recommendations)} recommendations")
         return recommendations
 
 # Global instance
 education_content_manager = EducationContentManager()
+
+
+

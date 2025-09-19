@@ -1,4 +1,4 @@
-"""
+﻿"""
 Strategy models for F&O Educational Learning System
 """
 from enum import Enum
@@ -52,7 +52,7 @@ class MarketCondition(str, Enum):
 class StrategyLeg(BaseModel):
     """Individual leg of options strategy"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     leg_id: str = Field(..., description="Unique leg ID")
     instrument_type: InstrumentType = Field(..., description="Type of instrument")
     position_type: PositionType = Field(..., description="Long or short position")
@@ -62,14 +62,14 @@ class StrategyLeg(BaseModel):
     premium: Optional[Decimal] = Field(None, description="Premium paid/received")
     underlying_symbol: str = Field(..., description="Underlying symbol")
     option_symbol: Optional[str] = Field(None, description="Option symbol")
-    
+
     @field_validator('quantity')
     @classmethod
     def validate_quantity(cls, v):
         if v <= 0:
             raise ValueError('Quantity must be positive')
         return v
-    
+
     @field_validator('strike_price')
     @classmethod
     def validate_strike_price(cls, v):
@@ -80,7 +80,7 @@ class StrategyLeg(BaseModel):
 class RiskParameters(BaseModel):
     """Risk parameters for strategy"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     max_loss: Optional[Decimal] = Field(None, description="Maximum possible loss")
     max_profit: Optional[Decimal] = Field(None, description="Maximum possible profit (None for unlimited)")
     breakeven_points: List[Decimal] = Field(default_factory=list, description="Breakeven points")
@@ -89,14 +89,14 @@ class RiskParameters(BaseModel):
     margin_required: Optional[Decimal] = Field(None, description="Margin required")
     time_decay_impact: Optional[str] = Field(None, description="Time decay impact")
     volatility_impact: Optional[str] = Field(None, description="Volatility impact")
-    
+
     @field_validator('probability_of_profit')
     @classmethod
     def validate_probability(cls, v):
         if v is not None and (v < 0 or v > 1):
             raise ValueError('Probability must be between 0 and 1')
         return v
-    
+
     @field_validator('risk_reward_ratio')
     @classmethod
     def validate_risk_reward(cls, v):
@@ -107,7 +107,7 @@ class RiskParameters(BaseModel):
 class RiskRewardProfile(BaseModel):
     """Strategy risk/reward analysis"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     max_profit: Decimal = Field(..., description="Maximum profit")
     max_loss: Decimal = Field(..., description="Maximum loss")
     breakeven_points: List[Decimal] = Field(default_factory=list, description="Breakeven points")
@@ -117,14 +117,14 @@ class RiskRewardProfile(BaseModel):
     win_rate: Optional[float] = Field(None, description="Historical win rate")
     average_profit: Optional[Decimal] = Field(None, description="Average profit")
     average_loss: Optional[Decimal] = Field(None, description="Average loss")
-    
+
     @field_validator('profit_probability')
     @classmethod
     def validate_probability(cls, v):
         if v < 0 or v > 1:
             raise ValueError('Probability must be between 0 and 1')
         return v
-    
+
     @field_validator('risk_reward_ratio')
     @classmethod
     def validate_risk_reward(cls, v):
@@ -135,7 +135,7 @@ class RiskRewardProfile(BaseModel):
 class OptionsStrategy(BaseModel):
     """Options strategy configuration"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     id: str = Field(..., description="Strategy ID")
     name: str = Field(..., description="Strategy name")
     strategy_type: StrategyType = Field(..., description="Type of strategy")
@@ -148,7 +148,7 @@ class OptionsStrategy(BaseModel):
     example_scenario: Optional[Dict[str, Any]] = Field(None, description="Example scenario")
     created_at: datetime = Field(default_factory=datetime.now, description="Creation timestamp")
     updated_at: datetime = Field(default_factory=datetime.now, description="Last update timestamp")
-    
+
     @field_validator('legs')
     @classmethod
     def validate_legs(cls, v):
@@ -159,7 +159,7 @@ class OptionsStrategy(BaseModel):
 class StrategyTemplate(BaseModel):
     """Strategy template for educational purposes"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     id: str = Field(..., description="Template ID")
     name: str = Field(..., description="Template name")
     strategy_type: StrategyType = Field(..., description="Type of strategy")
@@ -172,7 +172,7 @@ class StrategyTemplate(BaseModel):
     market_conditions: List[MarketCondition] = Field(default_factory=list, description="Optimal market conditions")
     educational_content: Dict[str, Any] = Field(default_factory=dict, description="Educational content")
     examples: List[Dict[str, Any]] = Field(default_factory=list, description="Strategy examples")
-    
+
     @field_validator('difficulty_level')
     @classmethod
     def validate_difficulty(cls, v):
@@ -183,7 +183,7 @@ class StrategyTemplate(BaseModel):
 class GreeksImpact(BaseModel):
     """Greeks impact analysis for strategy"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     strategy_id: str = Field(..., description="Strategy ID")
     delta: Decimal = Field(..., description="Strategy delta")
     gamma: Decimal = Field(..., description="Strategy gamma")
@@ -199,14 +199,14 @@ class GreeksImpact(BaseModel):
 class PnLScenario(BaseModel):
     """Profit/Loss scenario analysis"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     scenario_name: str = Field(..., description="Scenario name")
     underlying_price: Decimal = Field(..., description="Underlying price at expiry")
     strategy_pnl: Decimal = Field(..., description="Strategy P&L")
     individual_legs_pnl: List[Decimal] = Field(default_factory=list, description="Individual legs P&L")
     scenario_probability: Optional[float] = Field(None, description="Scenario probability")
     description: Optional[str] = Field(None, description="Scenario description")
-    
+
     @field_validator('scenario_probability')
     @classmethod
     def validate_probability(cls, v):
@@ -217,7 +217,7 @@ class PnLScenario(BaseModel):
 class StrategyAnalysis(BaseModel):
     """Complete strategy analysis"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     strategy: OptionsStrategy = Field(..., description="Strategy configuration")
     risk_reward_profile: RiskRewardProfile = Field(..., description="Risk/reward profile")
     greeks_impact: GreeksImpact = Field(..., description="Greeks impact")
@@ -230,7 +230,7 @@ class StrategyAnalysis(BaseModel):
 class StrategyValidationResult(BaseModel):
     """Strategy validation result"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     is_valid: bool = Field(..., description="Whether strategy is valid")
     validation_errors: List[str] = Field(default_factory=list, description="Validation errors")
     warnings: List[str] = Field(default_factory=list, description="Validation warnings")
@@ -238,14 +238,14 @@ class StrategyValidationResult(BaseModel):
     complexity_score: int = Field(..., description="Complexity score (1-10)")
     suitability_score: float = Field(..., description="Market suitability score")
     recommendations: List[str] = Field(default_factory=list, description="Recommendations")
-    
+
     @field_validator('complexity_score')
     @classmethod
     def validate_complexity(cls, v):
         if v < 1 or v > 10:
             raise ValueError('Complexity score must be between 1 and 10')
         return v
-    
+
     @field_validator('suitability_score')
     @classmethod
     def validate_suitability(cls, v):
@@ -256,7 +256,7 @@ class StrategyValidationResult(BaseModel):
 class StrategyRecommendation(BaseModel):
     """Strategy recommendation"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     strategy_template: StrategyTemplate = Field(..., description="Recommended strategy template")
     confidence_score: float = Field(..., description="Recommendation confidence (0-1)")
     reasoning: List[str] = Field(default_factory=list, description="Reasoning for recommendation")
@@ -264,7 +264,7 @@ class StrategyRecommendation(BaseModel):
     expected_performance: Dict[str, Any] = Field(default_factory=dict, description="Expected performance")
     risk_factors: List[str] = Field(default_factory=list, description="Risk factors")
     alternative_strategies: List[str] = Field(default_factory=list, description="Alternative strategy IDs")
-    
+
     @field_validator('confidence_score')
     @classmethod
     def validate_confidence(cls, v):
@@ -275,7 +275,7 @@ class StrategyRecommendation(BaseModel):
 class StrategyBuilderRequest(BaseModel):
     """Request to build a strategy"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     user_id: str = Field(..., description="User ID")
     strategy_type: StrategyType = Field(..., description="Desired strategy type")
     underlying_symbol: str = Field(..., description="Underlying symbol")
@@ -284,14 +284,14 @@ class StrategyBuilderRequest(BaseModel):
     capital_allocation: Decimal = Field(..., description="Capital allocation")
     time_horizon: int = Field(..., description="Time horizon in days")
     custom_parameters: Optional[Dict[str, Any]] = Field(None, description="Custom parameters")
-    
+
     @field_validator('capital_allocation')
     @classmethod
     def validate_capital(cls, v):
         if v <= 0:
             raise ValueError('Capital allocation must be positive')
         return v
-    
+
     @field_validator('time_horizon')
     @classmethod
     def validate_time_horizon(cls, v):

@@ -1,14 +1,14 @@
-"""
+﻿"""
 Paper Trading Models
 Data models for paper trading functionality
 """
 from datetime import datetime
 from typing import Optional, Dict, List, Any
-from decimal import Decimal
+# from decimal import Decimal  # Unused
 from pydantic import BaseModel, Field, ConfigDict
-from enum import Enum
+# from enum import Enum  # Unused
 
-from models.trading import OrderType, OrderStatus
+from models.trading import OrderType
 
 
 class PaperOrderRequest(BaseModel):
@@ -19,7 +19,7 @@ class PaperOrderRequest(BaseModel):
             'examples': [{'symbol': 'NIFTY', 'quantity': 50, 'order_type': 'buy', 'price': '18000.00'}]
         }
     )
-    
+
     symbol: str = Field(..., description="Trading symbol")
     quantity: int = Field(..., gt=0, description="Order quantity")
     side: str = Field(..., pattern="^(BUY|SELL)$", description="Order side")
@@ -31,7 +31,7 @@ class PaperOrderRequest(BaseModel):
 class PaperOrderResponse(BaseModel):
     """Response model for paper trading orders"""
     model_config = ConfigDict(from_attributes=True)
-    
+
     order_id: str = Field(..., description="Paper order ID")
     symbol: str = Field(..., description="Trading symbol")
     quantity: int = Field(..., description="Requested quantity")
@@ -50,7 +50,7 @@ class PaperOrderResponse(BaseModel):
 class VirtualPosition(BaseModel):
     """Virtual position in paper trading"""
     model_config = ConfigDict(from_attributes=True)
-    
+
     symbol: str = Field(..., description="Trading symbol")
     quantity: int = Field(..., description="Position quantity")
     avg_price: float = Field(..., description="Average entry price")
@@ -58,12 +58,12 @@ class VirtualPosition(BaseModel):
     realized_pnl: float = Field(0.0, description="Realized P&L")
     unrealized_pnl: float = Field(0.0, description="Unrealized P&L")
     margin_used: float = Field(0.0, description="Margin used")
-    
+
     @property
     def total_pnl(self) -> float:
         """Calculate total P&L"""
         return self.realized_pnl + self.unrealized_pnl
-    
+
     @property
     def position_value(self) -> float:
         """Calculate position value"""
@@ -73,7 +73,7 @@ class VirtualPosition(BaseModel):
 class PaperPortfolio(BaseModel):
     """Paper trading portfolio model"""
     model_config = ConfigDict(from_attributes=True)
-    
+
     user_id: str = Field(..., description="User ID")
     mode: str = Field("PAPER", description="Trading mode")
     cash_balance: float = Field(500000.0, description="Cash balance")
@@ -82,12 +82,12 @@ class PaperPortfolio(BaseModel):
     margin_used: float = Field(0.0, description="Total margin used")
     margin_available: float = Field(500000.0, description="Available margin")
     portfolio_value: float = Field(500000.0, description="Total portfolio value")
-    
+
     def calculate_portfolio_value(self) -> float:
         """Calculate total portfolio value"""
         positions_value = sum(pos.position_value for pos in self.positions)
         return self.cash_balance + positions_value + self.total_pnl
-    
+
     def calculate_margin(self) -> Dict[str, float]:
         """Calculate margin requirements"""
         total_margin = sum(pos.margin_used for pos in self.positions)
@@ -113,7 +113,7 @@ class PerformanceMetrics(BaseModel):
             "return_percentage": 5.0
         }
     })
-    
+
     total_trades: int = Field(0, description="Total number of trades")
     winning_trades: int = Field(0, description="Number of winning trades")
     losing_trades: int = Field(0, description="Number of losing trades")
@@ -130,7 +130,7 @@ class PerformanceMetrics(BaseModel):
 class SimulationAccuracy(BaseModel):
     """Simulation accuracy metrics"""
     model_config = ConfigDict(from_attributes=True)
-    
+
     current_accuracy: float = Field(..., description="Current simulation accuracy")
     target_accuracy: float = Field(0.95, description="Target accuracy")
     samples_analyzed: int = Field(..., description="Number of samples analyzed")
@@ -138,7 +138,7 @@ class SimulationAccuracy(BaseModel):
     latency_accuracy: float = Field(..., description="Latency simulation accuracy")
     fill_rate_accuracy: float = Field(..., description="Fill rate accuracy")
     last_calibration: str = Field(..., description="Last calibration timestamp")
-    
+
     @property
     def is_meeting_target(self) -> bool:
         """Check if accuracy meets target"""
@@ -148,7 +148,7 @@ class SimulationAccuracy(BaseModel):
 class PaperTradingSession(BaseModel):
     """Paper trading session information"""
     model_config = ConfigDict(from_attributes=True)
-    
+
     session_id: str = Field(..., description="Session ID")
     user_id: str = Field(..., description="User ID")
     start_time: datetime = Field(..., description="Session start time")
@@ -157,7 +157,7 @@ class PaperTradingSession(BaseModel):
     final_balance: Optional[float] = Field(None, description="Final balance")
     total_orders: int = Field(0, description="Total orders placed")
     performance_metrics: Optional[PerformanceMetrics] = Field(None, description="Performance metrics")
-    
+
     @property
     def session_duration(self) -> Optional[float]:
         """Calculate session duration in hours"""
@@ -165,7 +165,7 @@ class PaperTradingSession(BaseModel):
             delta = self.end_time - self.start_time
             return delta.total_seconds() / 3600
         return None
-    
+
     @property
     def session_return(self) -> Optional[float]:
         """Calculate session return percentage"""
@@ -185,7 +185,7 @@ class ModeSwitch(BaseModel):
             "message": "Verification required for mode switch"
         }
     })
-    
+
     from_mode: str = Field(..., pattern="^(PAPER|LIVE)$", description="Current mode")
     to_mode: str = Field(..., pattern="^(PAPER|LIVE)$", description="Target mode")
     user_id: str = Field(..., description="User ID")
@@ -199,7 +199,7 @@ class ModeSwitch(BaseModel):
 class HistoricalPerformance(BaseModel):
     """Historical performance data"""
     model_config = ConfigDict(from_attributes=True)
-    
+
     user_id: str = Field(..., description="User ID")
     mode: str = Field("PAPER", description="Trading mode")
     period_days: int = Field(..., description="Period in days")
@@ -209,7 +209,7 @@ class HistoricalPerformance(BaseModel):
     trough_value: float = Field(..., description="Trough portfolio value")
     total_return: float = Field(..., description="Total return percentage")
     volatility: float = Field(..., description="Return volatility")
-    
+
     @property
     def max_drawdown(self) -> float:
         """Calculate maximum drawdown"""

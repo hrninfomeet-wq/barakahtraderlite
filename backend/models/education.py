@@ -1,10 +1,10 @@
-"""
+﻿"""
 Educational content models for F&O Educational Learning System
 """
 from enum import Enum
 from datetime import datetime
 from typing import List, Optional, Dict, Any
-from decimal import Decimal
+# from decimal import Decimal  # Unused
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 class ContentType(str, Enum):
@@ -52,7 +52,7 @@ class CompletionStatus(str, Enum):
 class TutorialContent(BaseModel):
     """Educational tutorial content"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     id: str = Field(..., description="Unique tutorial ID")
     title: str = Field(..., description="Tutorial title")
     content_type: ContentType = Field(..., description="Type of educational content")
@@ -62,7 +62,7 @@ class TutorialContent(BaseModel):
     interactive_elements: List[Dict[str, Any]] = Field(default_factory=list, description="Interactive elements")
     prerequisites: List[str] = Field(default_factory=list, description="Required prerequisite modules")
     learning_objectives: List[str] = Field(default_factory=list, description="Learning objectives")
-    
+
     @field_validator('estimated_duration')
     @classmethod
     def validate_duration(cls, v):
@@ -73,7 +73,7 @@ class TutorialContent(BaseModel):
 class GreeksTutorial(BaseModel):
     """Interactive Greeks tutorial"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     greek_type: GreekType = Field(..., description="Type of Greek")
     explanation: str = Field(..., description="Detailed explanation of the Greek")
     visual_examples: List[Dict[str, Any]] = Field(default_factory=list, description="Visual examples")
@@ -85,7 +85,7 @@ class GreeksTutorial(BaseModel):
 class StrategyGuide(BaseModel):
     """Options strategy guide"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     strategy_name: str = Field(..., description="Name of the strategy")
     strategy_type: StrategyType = Field(..., description="Type of strategy")
     risk_level: RiskLevel = Field(..., description="Risk level of the strategy")
@@ -100,7 +100,7 @@ class StrategyGuide(BaseModel):
 class MarketEducation(BaseModel):
     """Indian market-specific education"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     topic: str = Field(..., description="Education topic")
     content_type: str = Field(..., description="Type of market education")
     regulations: List[str] = Field(default_factory=list, description="Relevant regulations")
@@ -113,7 +113,7 @@ class MarketEducation(BaseModel):
 class InteractiveElement(BaseModel):
     """Interactive element in tutorials"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     element_type: str = Field(..., description="Type of interactive element")
     element_id: str = Field(..., description="Unique element ID")
     configuration: Dict[str, Any] = Field(default_factory=dict, description="Element configuration")
@@ -123,7 +123,7 @@ class InteractiveElement(BaseModel):
 class VisualExample(BaseModel):
     """Visual example for tutorials"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     title: str = Field(..., description="Example title")
     description: str = Field(..., description="Example description")
     visual_type: str = Field(..., description="Type of visual (chart, graph, diagram)")
@@ -133,7 +133,7 @@ class VisualExample(BaseModel):
 class PracticalExample(BaseModel):
     """Practical example for learning"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     title: str = Field(..., description="Example title")
     scenario: str = Field(..., description="Example scenario")
     market_data: Dict[str, Any] = Field(default_factory=dict, description="Market data for example")
@@ -144,7 +144,7 @@ class PracticalExample(BaseModel):
 class EducationalContent(BaseModel):
     """Complete educational content item"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     id: str = Field(..., description="Unique content ID")
     title: str = Field(..., description="Content title")
     content_type: ContentType = Field(..., description="Type of content")
@@ -156,7 +156,7 @@ class EducationalContent(BaseModel):
     version: str = Field(default="1.0", description="Content version")
     author: str = Field(..., description="Content author")
     review_status: str = Field(default="pending", description="Review status")
-    
+
     @field_validator('version')
     @classmethod
     def validate_version(cls, v):
@@ -167,14 +167,14 @@ class EducationalContent(BaseModel):
 class ContentUpdateRequest(BaseModel):
     """Request to update educational content"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     content_id: str = Field(..., description="ID of content to update")
     title: Optional[str] = Field(None, description="New title")
     content_data: Optional[Dict[str, Any]] = Field(None, description="Updated content data")
     metadata: Optional[Dict[str, Any]] = Field(None, description="Updated metadata")
     version: Optional[str] = Field(None, description="New version")
     review_status: Optional[str] = Field(None, description="Review status")
-    
+
     @field_validator('version')
     @classmethod
     def validate_version(cls, v):
@@ -185,14 +185,14 @@ class ContentUpdateRequest(BaseModel):
 class ContentSearchRequest(BaseModel):
     """Request to search educational content"""
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-    
+
     content_type: Optional[ContentType] = Field(None, description="Filter by content type")
     difficulty_level: Optional[DifficultyLevel] = Field(None, description="Filter by difficulty level")
     search_query: Optional[str] = Field(None, description="Search query")
     tags: Optional[List[str]] = Field(None, description="Filter by tags")
     limit: int = Field(default=10, description="Maximum number of results")
     offset: int = Field(default=0, description="Number of results to skip")
-    
+
     @field_validator('limit')
     @classmethod
     def validate_limit(cls, v):
@@ -201,11 +201,14 @@ class ContentSearchRequest(BaseModel):
         if v > 100:
             raise ValueError('Limit cannot exceed 100')
         return v
-    
+
     @field_validator('offset')
     @classmethod
     def validate_offset(cls, v):
         if v < 0:
             raise ValueError('Offset cannot be negative')
         return v
+
+
+
 
