@@ -7,7 +7,7 @@ if (-not (Test-Path .env)) {
     
     $envContent = @"
 # Codacy Configuration
-CODACY_API_TOKEN=your_codacy_api_token_here
+CODACY_API_TOKEN=YKqLap06omBDqZHI0vrJ
 CODACY_ORGANIZATION_PROVIDER=gh
 CODACY_USERNAME=hrninfomeet-wq
 CODACY_PROJECT_NAME=barakahtraderlite
