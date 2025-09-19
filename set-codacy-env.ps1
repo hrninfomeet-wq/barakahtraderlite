@@ -1,7 +1,7 @@
 # Set Codacy Environment Variables
 Write-Host "Setting Codacy environment variables..." -ForegroundColor Green
 
-$env:CODACY_API_TOKEN = "FdjPWqekcDZ4WTZ5M634"
+$env:CODACY_API_TOKEN = "YKqLap06omBDqZHI0vrJ"
 $env:CODACY_ORGANIZATION_PROVIDER = "gh"
 $env:CODACY_USERNAME = "hrninfomeet-wq"
 $env:CODACY_PROJECT_NAME = "barakahtraderlite"
