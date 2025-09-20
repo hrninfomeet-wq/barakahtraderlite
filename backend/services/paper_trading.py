@@ -15,7 +15,7 @@ from services.simulation_accuracy_framework import (
     SimulationConfig,
     MarketSimulator
 )
-from services.market_data_service import MarketDataPipeline
+from services.market_data_service import MarketDataPipeline, MarketDataRequest, DataType
 # from core.database import get_db_session  # Unused
 
 
@@ -125,7 +125,19 @@ class PaperTradingEngine:
         portfolio = self.get_or_create_portfolio(user_id)
 
         # Get current market data
-        market_data = await self.market_data_pipeline.get_market_data(order.symbol)
+        request = MarketDataRequest(symbols=[order.symbol], data_types=[DataType.PRICE])
+        market_data_response = await self.market_data_pipeline.get_market_data(request)
+
+        # Compatibility: allow tests to mock either a response with .data or a direct MarketData-like object
+        market_data = None
+        if market_data_response is None:
+            market_data = None
+        elif hasattr(market_data_response, 'data') and isinstance(market_data_response.data, dict):
+            market_data = market_data_response.data.get(order.symbol)
+        elif hasattr(market_data_response, 'last_price'):
+            # Direct MarketData mock provided
+            market_data = market_data_response
+
         if not market_data or not hasattr(market_data, 'last_price'):
             return {
                 'success': False,
@@ -188,9 +200,20 @@ class PaperTradingEngine:
         # Calculate unrealized P&L for open positions
         for symbol, position in portfolio.positions.items():
             if position['quantity'] > 0:
-                market_data = await self.market_data_pipeline.get_market_data(symbol)
-                if market_data:
-                    current_price = Decimal(str(market_data.last_price))
+                request = MarketDataRequest(symbols=[symbol], data_types=[DataType.PRICE])
+                market_data_response = await self.market_data_pipeline.get_market_data(request)
+
+                # Compatibility handling for portfolio valuation as well
+                current_md = None
+                if market_data_response is None:
+                    current_md = None
+                elif hasattr(market_data_response, 'data') and isinstance(market_data_response.data, dict):
+                    current_md = market_data_response.data.get(symbol)
+                elif hasattr(market_data_response, 'last_price'):
+                    current_md = market_data_response
+
+                if current_md:
+                    current_price = Decimal(str(current_md.last_price))
                     position['unrealized_pnl'] = (
                         (current_price - position['avg_price']) * position['quantity']
                     )

@@ -12,6 +12,9 @@ from collections import defaultdict, deque
 import json
 import pickle
 import hashlib
+import os
+from urllib.parse import quote
+import aiohttp
 
 from models.market_data import (
     MarketData, CacheEntry, PerformanceMetrics, ValidationTier, DataType
@@ -225,6 +228,12 @@ class L3APILayer:
         results = {}
 
         try:
+            # If feature flag enabled, fetch from Upstox REST LTP API
+            if os.environ.get('UPSTOX_LIVE_DATA_ENABLED', 'false').lower() == 'true':
+                upstox_data = await self._fetch_upstox_ltp(symbols)
+                if upstox_data:
+                    results.update(upstox_data)
+
             if self.websocket_pool:
                 # Subscribe to symbols if not already subscribed
                 subscription_results = await self.websocket_pool.subscribe_symbols(symbols)
@@ -232,12 +241,13 @@ class L3APILayer:
                 # For now, simulate API response
                 # In real implementation, this would fetch from subscribed WebSocket streams
                 for symbol in symbols:
-                    # Simulate API response with current timestamp
+                    if symbol in results:
+                        continue
                     market_data = MarketData(
                         symbol=symbol,
                         exchange="NSE",
-                        last_price=1000.0 + hash(symbol) % 1000,  # Simulate price
-                        volume=1000000 + hash(symbol) % 1000000,  # Simulate volume
+                        last_price=1000.0 + hash(symbol) % 1000,
+                        volume=1000000 + hash(symbol) % 1000000,
                         timestamp=datetime.now(),
                         data_type=DataType.PRICE,
                         source="api_direct",
@@ -259,6 +269,60 @@ class L3APILayer:
         self.api_call_times.append(api_time * 1000)  # Convert to milliseconds
 
         return results
+
+    async def _fetch_upstox_ltp(self, symbols: List[str]) -> Dict[str, MarketData]:
+        """Fetch LTP from Upstox REST and normalize to MarketData."""
+        base_url = os.environ.get('UPSTOX_BASE_URL', 'https://api.upstox.com/v2')
+        token = os.environ.get('UPSTOX_ACCESS_TOKEN')
+        if not token:
+            return {}
+
+        def to_instrument_key(sym: str) -> str:
+            return f"NSE_EQ|{sym}"
+
+        instrument_keys = [to_instrument_key(s) for s in symbols]
+        instrument_param = ",".join(quote(k, safe='|') for k in instrument_keys)
+        url = f"{base_url}/market-quote/ltp?instrument_key={instrument_param}"
+
+        headers = {'Authorization': f"Bearer {token}"}
+        timeout = aiohttp.ClientTimeout(total=3)
+        result: Dict[str, MarketData] = {}
+
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            try:
+                async with session.get(url, headers=headers) as resp:
+                    if resp.status != 200:
+                        logger.warning(f"Upstox LTP HTTP {resp.status}")
+                        return {}
+                    data = await resp.json()
+                    payload = data.get('data') if isinstance(data, dict) else None
+                    if not isinstance(payload, dict):
+                        return {}
+                    inv_map = {to_instrument_key(s): s for s in symbols}
+                    now_ts = datetime.now()
+                    for key, md in payload.items():
+                        sym = inv_map.get(key)
+                        if not sym:
+                            continue
+                        ltp = md.get('ltp') if isinstance(md, dict) else None
+                        if ltp is None or ltp <= 0:
+                            continue
+                        result[sym] = MarketData(
+                            symbol=sym,
+                            exchange="NSE",
+                            last_price=float(ltp),
+                            volume=0,
+                            timestamp=now_ts,
+                            data_type=DataType.PRICE,
+                            source="UPSTOX",
+                            validation_tier=ValidationTier.FAST,
+                            confidence_score=1.0
+                        )
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                logger.error(f"Upstox LTP fetch error: {e}")
+                return {}
+
+        return result
 
     def get_performance_metrics(self) -> Dict[str, Any]:
         """Get L3 API layer performance metrics"""

@@ -5,8 +5,11 @@ import pytest
 import asyncio
 from datetime import datetime
 from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock
 
-from services.paper_trading import PaperTradingEngine
+import pytest_asyncio
+
+from services.paper_trading import PaperTradingEngine, paper_trading_engine
 from services.multi_api_manager import MultiAPIManager
 from models.trading import Order, OrderType, TradingMode
 from models.paper_trading import PaperOrderRequest
@@ -15,7 +18,7 @@ from models.paper_trading import PaperOrderRequest
 class TestPaperTradingIntegration:
     """Integration tests for paper trading with other components"""
 
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def setup_environment(self):
         """Setup test environment with all components"""
         engine = PaperTradingEngine()
@@ -31,7 +34,7 @@ class TestPaperTradingIntegration:
     @pytest.mark.asyncio
     async def test_mode_switching_data_isolation(self, setup_environment):
         """Test that data is isolated between paper and live modes"""
-        engine, manager = await setup_environment
+        engine, manager = setup_environment
         user_id = 'test_user'
 
         # Create paper order
@@ -43,11 +46,11 @@ class TestPaperTradingIntegration:
             user_id=user_id
         )
 
-        # Execute in paper mode
-        with patch.object(engine.market_data_pipeline, 'get_market_data') as mock_data:
-            mock_data.return_value = Mock(last_price=2500.0)
+        # Execute in paper mode using module-level engine routed by MultiAPIManager
+        with patch('services.multi_api_manager.paper_trading_engine.market_data_pipeline.get_market_data', new_callable=AsyncMock) as mock_data:
+            mock_data.return_value = Mock(data={'RELIANCE': Mock(last_price=2500.0)})
 
-            with patch.object(engine.simulation_framework, 'simulate_order_execution') as mock_sim:
+            with patch('services.multi_api_manager.paper_trading_engine.simulation_framework.simulate_order_execution') as mock_sim:
                 mock_sim.return_value = {
                     'execution_price': 2501.0,
                     'filled_quantity': 10,
@@ -65,19 +68,15 @@ class TestPaperTradingIntegration:
         assert paper_result['order']['is_paper_trade'] == True
         assert paper_result['order']['mode'] == 'PAPER'
 
-        # Verify paper portfolio
-        paper_portfolio = await engine.get_portfolio(user_id)
+        # Verify paper portfolio from the module-level engine used by routing
+        paper_portfolio = await paper_trading_engine.get_portfolio(user_id)
         assert len(paper_portfolio['positions']) > 0
-
-        # In live mode, portfolio should be empty (data isolation)
-        # This would be a separate live portfolio in production
-        # For testing, we verify the paper flag
         assert paper_portfolio['mode'] == 'PAPER'
 
     @pytest.mark.asyncio
     async def test_simulation_accuracy_calibration(self, setup_environment):
         """Test that simulation accuracy improves with calibration"""
-        engine, _ = await setup_environment
+        engine, _ = setup_environment
 
         # Execute multiple orders for calibration
         for i in range(10):
@@ -89,8 +88,8 @@ class TestPaperTradingIntegration:
                 user_id='test_user'
             )
 
-            with patch.object(engine.market_data_pipeline, 'get_market_data') as mock_data:
-                mock_data.return_value = Mock(last_price=1000.0 + i)
+            with patch.object(engine.market_data_pipeline, 'get_market_data', new_callable=AsyncMock) as mock_data:
+                mock_data.return_value = Mock(data={f'TEST{i}': Mock(last_price=1000.0 + i)})
 
                 with patch.object(engine.simulation_framework, 'simulate_order_execution') as mock_sim:
                     mock_sim.return_value = {
@@ -109,7 +108,7 @@ class TestPaperTradingIntegration:
     @pytest.mark.asyncio
     async def test_performance_continuity_across_sessions(self, setup_environment):
         """Test that performance data persists across sessions"""
-        engine, _ = await setup_environment
+        engine, _ = setup_environment
         user_id = 'test_user'
 
         # Execute some trades
@@ -132,7 +131,7 @@ class TestPaperTradingIntegration:
     @pytest.mark.asyncio
     async def test_mode_switch_validation(self, setup_environment):
         """Test mode switching validation and safety checks"""
-        _, manager = await setup_environment
+        _, manager = setup_environment
 
         # Test that restricted operations fail in paper mode
         with pytest.raises(ValueError) as exc_info:
@@ -147,7 +146,7 @@ class TestPaperTradingIntegration:
     @pytest.mark.asyncio
     async def test_concurrent_paper_orders(self, setup_environment):
         """Test handling concurrent paper orders"""
-        engine, _ = await setup_environment
+        engine, _ = setup_environment
         user_id = 'test_user'
 
         # Create multiple orders
@@ -163,8 +162,8 @@ class TestPaperTradingIntegration:
         ]
 
         # Execute concurrently
-        with patch.object(engine.market_data_pipeline, 'get_market_data') as mock_data:
-            mock_data.return_value = Mock(last_price=2500.0)
+        with patch.object(engine.market_data_pipeline, 'get_market_data', new_callable=AsyncMock) as mock_data:
+            mock_data.return_value = Mock(data={'RELIANCE': Mock(last_price=2500.0)})
 
             with patch.object(engine.simulation_framework, 'simulate_order_execution') as mock_sim:
                 mock_sim.return_value = {

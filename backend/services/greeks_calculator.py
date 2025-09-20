@@ -40,10 +40,20 @@ class GreeksCalculator:
             Delta value
         """
         try:
+            # Input validation to prevent math domain errors
+            if S <= 0 or K <= 0 or sigma <= 0:
+                logger.warning(f"Invalid inputs for delta calculation: S={S}, K={K}, sigma={sigma}")
+                return 0.0
+
             if T <= 0:
                 return 1.0 if option_type == 'call' else -1.0
 
-            d1 = (np.log(S/K) + (r + 0.5*sigma**2)*T) / (sigma*np.sqrt(T))
+            # Safe log calculation with domain validation
+            try:
+                d1 = (np.log(S/K) + (r + 0.5*sigma**2)*T) / (sigma*np.sqrt(T))
+            except (ValueError, ZeroDivisionError, RuntimeWarning):
+                logger.warning(f"Math domain error in delta calculation: S/K={S/K}")
+                return 0.0
 
             if option_type.lower() == 'call':
                 delta = norm.cdf(d1)
