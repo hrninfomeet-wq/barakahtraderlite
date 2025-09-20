@@ -123,6 +123,69 @@ class ContextualHelpSystem:
             logger.error(f"Error analyzing user behavior: {e}")
             return {}
 
+    def get_trading_context_help(self, trading_action: str, position_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Get contextual help for trading UI actions"""
+        try:
+            context_help = {
+                "action": trading_action,
+                "help_text": "",
+                "warnings": [],
+                "educational_links": []
+            }
+
+            if trading_action == "place_order":
+                context_help["help_text"] = "Review Greeks impact before placing order"
+                context_help["warnings"] = ["Check time decay for short-term options"]
+                context_help["educational_links"] = ["greeks_delta", "strategy_basics"]
+
+            elif trading_action == "close_position":
+                context_help["help_text"] = "Consider profit/loss and remaining time value"
+                context_help["warnings"] = ["Early assignment risk for ITM options"]
+
+            elif trading_action == "modify_strategy":
+                context_help["help_text"] = "Analyze Greeks changes before modification"
+                context_help["educational_links"] = ["strategy_management"]
+
+            logger.info(f"Trading context help generated for {trading_action}")
+            return context_help
+
+        except Exception as e:
+            logger.error(f"Error getting trading context help: {e}")
+            return {"action": trading_action, "help_text": "Help temporarily unavailable"}
+
+    def get_real_time_alerts(self, portfolio: Portfolio, market_conditions: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Generate real-time alerts based on portfolio and market conditions"""
+        try:
+            alerts = []
+
+            # Check for expiry alerts
+            for position in portfolio.positions:
+                if position.expiry_date:
+                    days_to_expiry = (position.expiry_date - datetime.now()).days
+                    if days_to_expiry <= 7:
+                        alerts.append({
+                            "type": "expiry_warning",
+                            "message": f"{position.symbol} expires in {days_to_expiry} days",
+                            "severity": "medium",
+                            "action": "Consider closing or rolling position"
+                        })
+
+            # Check for high volatility
+            if market_conditions.get("volatility_spike", False):
+                alerts.append({
+                    "type": "volatility_alert",
+                    "message": "High volatility detected - review vega exposure",
+                    "severity": "low",
+                    "action": "Check vega impact on positions"
+                })
+
+            logger.info(f"Generated {len(alerts)} real-time alerts")
+            return alerts
+
+        except Exception as e:
+            logger.error(f"Error generating real-time alerts: {e}")
+            return []
+
 # Global instance
 contextual_help = ContextualHelpSystem()
 

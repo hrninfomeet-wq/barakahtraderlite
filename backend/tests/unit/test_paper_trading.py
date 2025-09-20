@@ -111,8 +111,8 @@ class TestPaperTradingEngine:
     async def test_execute_order_success(self, engine, sample_order):
         """Test successful order execution"""
         # Mock market data
-        with patch.object(engine.market_data_pipeline, 'get_market_data') as mock_market_data:
-            mock_market_data.return_value = Mock(last_price=2500.0)
+        with patch.object(engine.market_data_pipeline, 'get_market_data', new_callable=AsyncMock) as mock_market_data:
+            mock_market_data.return_value = Mock(data={'RELIANCE': Mock(last_price=2500.0)})
 
             # Mock simulation
             with patch.object(engine.simulation_framework, 'simulate_order_execution') as mock_simulate:
@@ -133,8 +133,8 @@ class TestPaperTradingEngine:
     @pytest.mark.asyncio
     async def test_execute_order_partial_fill(self, engine, sample_order):
         """Test partial fill order execution"""
-        with patch.object(engine.market_data_pipeline, 'get_market_data') as mock_market_data:
-            mock_market_data.return_value = Mock(last_price=2500.0)
+        with patch.object(engine.market_data_pipeline, 'get_market_data', new_callable=AsyncMock) as mock_market_data:
+            mock_market_data.return_value = Mock(data={'RELIANCE': Mock(last_price=2500.0)})
 
             with patch.object(engine.simulation_framework, 'simulate_order_execution') as mock_simulate:
                 mock_simulate.return_value = {

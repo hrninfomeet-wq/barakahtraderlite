@@ -6,6 +6,8 @@ import asyncio
 import aiohttp
 import time
 import statistics
+import os
+from urllib.parse import quote
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Deque
@@ -17,6 +19,14 @@ from models.trading import (
     TradingMode
 )
 # from core.database import AuditLogger  # Unused
+
+# Import paper trading engine for module-level access
+from services.paper_trading import paper_trading_engine
+
+
+class APIOperationError(Exception):
+    """Raised when all APIs fail for an operation."""
+    pass
 
 
 class EnhancedRateLimiter:
@@ -263,7 +273,8 @@ class TradingAPIInterface(ABC):
         """Perform health check on API"""
         try:
             start_time = time.time()
-            result = await self.get_portfolio()
+            # Call portfolio to verify connectivity
+            await self.get_portfolio()
             response_time = (time.time() - start_time) * 1000  # Convert to ms
 
             self.health_status = HealthStatus.HEALTHY
@@ -382,11 +393,18 @@ class UpstoxAPI(TradingAPIInterface):
     async def authenticate(self, credentials: Dict) -> bool:
         """Authenticate with UPSTOX API"""
         try:
-            # UPSTOX authentication implementation
-            logger.info("UPSTOX authentication successful")
-            self.auth_token = "upstox_token_placeholder"
-            self.token_expiry = datetime.now() + timedelta(hours=24)
-            return True
+            # If an access token is already provided via env or credentials, use it
+            access_token = credentials.get('access_token') or os.environ.get('UPSTOX_ACCESS_TOKEN')
+            if access_token:
+                self.auth_token = access_token
+                # Note: Without expiry info, set a conservative expiry window
+                self.token_expiry = datetime.now() + timedelta(hours=4)
+                logger.info("UPSTOX authentication: using provided access token")
+                return True
+
+            # PKCE/OAuth flow would go here; for now, require pre-provisioned token
+            logger.warning("UPSTOX authentication skipped: no access token provided. Set UPSTOX_ACCESS_TOKEN or pass credentials.")
+            return False
         except Exception as e:
             logger.error(f"UPSTOX authentication failed: {e}")
             return False
@@ -408,12 +426,64 @@ class UpstoxAPI(TradingAPIInterface):
 
     async def get_market_data(self, symbols: List[str]) -> Dict[str, Dict]:
         """Get market data from UPSTOX"""
-        # Implementation placeholder
-        return {symbol: {"price": 100.0} for symbol in symbols}
+        # Feature flag: enable real live data when explicitly turned on
+        live_enabled = os.environ.get('UPSTOX_LIVE_DATA_ENABLED', 'false').lower() == 'true'
+        if not live_enabled:
+            return {symbol: {"price": 100.0} for symbol in symbols}
+
+        base_url = os.environ.get('UPSTOX_BASE_URL', 'https://api.upstox.com/v2')
+        # Default instrument mapping (can be refined per symbol type)
+        def to_instrument_key(sym: str) -> str:
+            # Upstox instrument format example: NSE_EQ|RELIANCE
+            return f"NSE_EQ|{sym}"
+
+        instrument_keys = [to_instrument_key(s) for s in symbols]
+        # API expects instrument_key param, allow comma-separated encoding of pipe
+        instrument_param = ",".join(quote(k, safe='|') for k in instrument_keys)
+        url = f"{base_url}/market-quote/ltp?instrument_key={instrument_param}"
+
+        headers = {}
+        token = self.auth_token or os.environ.get('UPSTOX_ACCESS_TOKEN')
+        if token:
+            headers['Authorization'] = f"Bearer {token}"
+
+        timeout = aiohttp.ClientTimeout(total=self.config.timeout)
+        session = self.session or aiohttp.ClientSession(timeout=timeout)
+        created_session = self.session is None
+
+        try:
+            async with session.get(url, headers=headers) as resp:
+                if resp.status == 429:
+                    # Rate limited - surface minimal info
+                    logger.warning("UPSTOX rate limit hit (429) while fetching market data")
+                    return {symbol: {"price": None, "error": "rate_limited"} for symbol in symbols}
+                resp.raise_for_status()
+                data = await resp.json()
+
+                # Expected shape varies; normalize to {symbol: {"price": ltp}}
+                result: Dict[str, Dict] = {}
+                # Try common shapes: { 'data': { instrument_key: { 'ltp': value, ... } } }
+                payload = data.get('data') if isinstance(data, dict) else None
+                if isinstance(payload, dict):
+                    inv_map = {to_instrument_key(s): s for s in symbols}
+                    for key, md in payload.items():
+                        symbol = inv_map.get(key)
+                        if symbol:
+                            ltp = md.get('ltp') if isinstance(md, dict) else None
+                            result[symbol] = {"price": ltp}
+                # Fallback: return placeholder if normalization failed
+                if not result:
+                    result = {symbol: {"price": None, "error": "unexpected_response"} for symbol in symbols}
+                return result
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            logger.error(f"Error fetching UPSTOX market data: {e}")
+            return {symbol: {"price": None, "error": str(e)} for symbol in symbols}
+        finally:
+            if created_session:
+                await session.close()
 
     async def cancel_order(self, order_id: str) -> bool:
-        """Cancel order via UPSTOX"""
-        # Implementation placeholder
+        """Cancel order via UPSTOX (not used in PAPER mode)."""
         return True
 
 
@@ -731,27 +801,26 @@ class MultiAPIManager:
 
         Enhanced with mode validation for paper trading safety
         """
+        # LAYER 1: Mode routing/validation placed before try so ValueError is not swallowed
+        if mode == TradingMode.PAPER:
+            # Route to paper trading engine (imported at module level)
+            if operation == "place_order":
+                order = kwargs.get('order')
+                user_id = kwargs.get('user_id', 'default')
+                result = await paper_trading_engine.execute_order(order, user_id)
+                return result
+            elif operation in ["get_positions", "get_portfolio"]:
+                user_id = kwargs.get('user_id', 'default')
+                return await paper_trading_engine.get_portfolio(user_id)
+            else:
+                # For market data operations, continue to real APIs
+                pass
+
+        # LAYER 2: Validate operation is allowed in current mode
+        if mode and not self._is_operation_allowed(operation, mode):
+            raise ValueError(f"Operation '{operation}' not allowed in {mode.value} mode")
+
         try:
-            # LAYER 1: Mode validation for paper trading
-            if mode == TradingMode.PAPER:
-                # Route to paper trading engine
-                from services.paper_trading import paper_trading_engine
-
-                if operation == "place_order":
-                    order = kwargs.get('order')
-                    user_id = kwargs.get('user_id', 'default')
-                    result = await paper_trading_engine.execute_order(order, user_id)
-                    return result
-                elif operation in ["get_positions", "get_portfolio"]:
-                    user_id = kwargs.get('user_id', 'default')
-                    return await paper_trading_engine.get_portfolio(user_id)
-                else:
-                    # For market data operations, continue to real APIs
-                    pass
-
-            # LAYER 2: Validate operation is allowed in current mode
-            if mode and not self._is_operation_allowed(operation, mode):
-                raise ValueError(f"Operation '{operation}' not allowed in {mode.value} mode")
 
             # Use intelligent load balancer to select best API
             api_name = await self.load_balancer.select_best_api(operation)
@@ -867,7 +936,7 @@ class MultiAPIManager:
                     logger.error(f"Fallback API {fallback_api_name} failed for operation {operation}: {fallback_e}")
                     continue
 
-            raise Exception(f"All APIs failed for operation: {operation}")
+            raise APIOperationError(f"All APIs failed for operation: {operation}") from e
 
     def _is_operation_allowed(self, operation: str, mode: TradingMode) -> bool:
         """Check if operation is allowed in the given mode"""

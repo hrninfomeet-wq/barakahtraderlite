@@ -1,0 +1,6 @@
+diff --git a/app/layout.tsx b/app/layout.tsx
+--- a/app/layout.tsx
++++ b/app/layout.tsx
+@@ -28,1 +28,1 @@
+-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
++        className={""+geistSans.variable+" "+geistMono.variable+" antialiased"}

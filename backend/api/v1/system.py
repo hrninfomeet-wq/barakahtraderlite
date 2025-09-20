@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Dict, List
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
+import os
 
 from models.trading import APIProvider, HealthStatus
 from services.multi_api_manager import MultiAPIManager
@@ -32,6 +33,17 @@ class SystemStatusResponse(BaseModel):
     healthy_apis: int
     unhealthy_apis: int
     api_statuses: List[HealthStatusResponse]
+
+
+class LiveDataFlagRequest(BaseModel):
+    provider: str = "upstox"
+    enabled: bool
+
+
+class LiveDataFlagResponse(BaseModel):
+    provider: str
+    enabled: bool
+    timestamp: datetime
 
 
 # Dependency injection for MultiAPIManager
@@ -310,3 +322,28 @@ async def get_performance_metrics(api_manager: MultiAPIManager = Depends(get_api
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get performance metrics: {str(e)}")
+
+
+@router.get("/config/live-data", response_model=LiveDataFlagResponse)
+async def get_live_data_flag():
+    """
+    Get current live-data feature flag for a provider (default: upstox)
+    """
+    provider = "upstox"
+    env_key = "UPSTOX_LIVE_DATA_ENABLED"
+    enabled = os.environ.get(env_key, "false").lower() == "true"
+    return LiveDataFlagResponse(provider=provider, enabled=enabled, timestamp=datetime.now())
+
+
+@router.post("/config/live-data", response_model=LiveDataFlagResponse)
+async def set_live_data_flag(payload: LiveDataFlagRequest):
+    """
+    Toggle live-data feature flag for a provider (in-process via environment var)
+    """
+    provider = payload.provider.lower()
+    if provider != "upstox":
+        raise HTTPException(status_code=400, detail="Only 'upstox' is supported at this time")
+
+    env_key = "UPSTOX_LIVE_DATA_ENABLED"
+    os.environ[env_key] = "true" if payload.enabled else "false"
+    return LiveDataFlagResponse(provider=provider, enabled=payload.enabled, timestamp=datetime.now())
