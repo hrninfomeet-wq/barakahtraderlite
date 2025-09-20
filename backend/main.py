@@ -2,6 +2,21 @@
 FastAPI Application Entry Point
 Enhanced AI-Powered Personal Trading Engine Backend
 """
+
+# ------------- ENVIRONMENT VARIABLES -------------
+# Load env.local / .env prior to any other imports so that
+# downstream modules (e.g., auth router) see the values.
+# -------------------------------------------------
+from pathlib import Path
+from dotenv import load_dotenv  # type: ignore
+
+_ROOT_DIR = Path(__file__).resolve().parent.parent
+for _candidate in ("env.local", ".env.local", ".env"):
+    _env_file = _ROOT_DIR / _candidate
+    if _env_file.exists():
+        load_dotenv(dotenv_path=_env_file, override=False)
+        break
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -14,6 +29,7 @@ from api.v1.system import router as system_router
 from api.v1.market_data import router as market_data_router
 from api.v1.education import router as education_router
 from api.v1.paper_trading import router as paper_trading_router
+from api.v1.auth import router as auth_router
 from api.v1.strategy import router as strategy_router
 
 
@@ -111,6 +127,7 @@ app.include_router(system_router, prefix="/api/v1")
 app.include_router(market_data_router, prefix="/api/v1")
 app.include_router(education_router, prefix="/api/v1")
 app.include_router(paper_trading_router, prefix="/api/v1")
+app.include_router(auth_router, prefix="/api/v1")
 app.include_router(strategy_router, prefix="/api/v1")
 
 
