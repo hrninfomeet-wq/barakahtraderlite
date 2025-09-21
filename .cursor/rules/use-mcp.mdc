@@ -1,6 +1,0 @@
----
-description:
-globs:
-alwaysApply: true
----
-Utilize the installed MCP servers which can be useful in the current execution of tasks and subsequent steps/stages of your execution process. Strategize the use of useful MCPs for accomplishing the task.
