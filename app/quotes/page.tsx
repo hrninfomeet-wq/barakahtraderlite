@@ -9,6 +9,10 @@ type Quote = {
   last_price?: number;
   timestamp?: string;
   error?: string;
+  source?: string;
+  live_mode?: boolean;
+  volume?: number;
+  change_percent?: number;
 };
 
 type OrderSide = "BUY" | "SELL";
@@ -37,12 +41,24 @@ export default function QuotesPage() {
   const [orderPrice, setOrderPrice] = useState<string>("");
   const [orderMsg, setOrderMsg] = useState<string>("");
   const orderMsgTimeoutRef = useRef<NodeJS.Timer | null>(null);
+  
+  // Paper trading history state
+  const [showHistory, setShowHistory] = useState<boolean>(false);
+  const [tradingHistory, setTradingHistory] = useState<any[]>([]);
 
   async function fetchFlag() {
     try {
       const res = await fetch(`${backendUrl}/api/v1/system/config/live-data`);
       const data = await res.json();
-      setLiveEnabled(Boolean(data.enabled));
+      console.log('Live data flag response:', data);
+      
+      // Backend returns live_data_enabled, not enabled
+      const enabled = Boolean(data.live_data_enabled);
+      setLiveEnabled(enabled);
+      
+      if (enabled) {
+        setMessage("✅ Live data is currently enabled");
+      }
     } catch {
       setMessage("Failed to read live-data flag");
     }
@@ -51,13 +67,18 @@ export default function QuotesPage() {
   async function toggleFlag() {
     if (liveEnabled === null) return;
     try {
+      const newState = !liveEnabled;
       const res = await fetch(`${backendUrl}/api/v1/system/config/live-data`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: "upstox", enabled: !liveEnabled }),
+        body: JSON.stringify({ provider: "upstox", enabled: newState }),
       });
       const data = await res.json();
-      setLiveEnabled(Boolean(data.enabled));
+      console.log('Live data toggle response:', data);
+      
+      // Backend returns live_data_enabled, not enabled
+      setLiveEnabled(Boolean(data.live_data_enabled));
+      setMessage(data.message || `Live data ${newState ? 'enabled' : 'disabled'}`);
     } catch {
       setMessage("Failed to toggle live-data flag");
     }
@@ -67,8 +88,18 @@ export default function QuotesPage() {
     try {
       const res = await fetch(`${backendUrl}/api/v1/auth/upstox/status`);
       const data = await res.json();
-      setUpstoxConnected(data.has_token || false);
-      setUpstoxValid(data.is_valid || false);
+      console.log('Upstox status response:', data);
+      
+      // Check for authentication - backend returns has_access_token and status
+      const isConnected = data.has_access_token || data.status === 'authenticated';
+      const isValid = data.has_credentials && !data.requires_login;
+      
+      setUpstoxConnected(isConnected);
+      setUpstoxValid(isValid);
+      
+      if (isConnected && isValid) {
+        setMessage("✅ Upstox is connected and ready for trading!");
+      }
     } catch {
       setUpstoxConnected(false);
       setUpstoxValid(false);
@@ -88,8 +119,39 @@ export default function QuotesPage() {
     }
   }
 
-  function connectUpstox() {
-    window.open(`${backendUrl}/api/v1/auth/upstox/login`, '_self');
+  async function connectUpstox() {
+    try {
+      // Get the auth URL from backend
+      const res = await fetch(`${backendUrl}/api/v1/auth/upstox/login`);
+      const data = await res.json();
+      
+      if (res.ok && data.auth_url) {
+        // Open Upstox login in popup window
+        const popup = window.open(
+          data.auth_url, 
+          'upstox_auth', 
+          'width=500,height=700,scrollbars=yes,resizable=yes'
+        );
+        
+        if (popup) {
+          setMessage("Upstox login window opened. Please complete authentication.");
+          
+          // Check if popup is closed manually
+          const checkClosed = setInterval(() => {
+            if (popup.closed) {
+              clearInterval(checkClosed);
+              setMessage("Login window closed. Please try again if authentication wasn't completed.");
+            }
+          }, 1000);
+        } else {
+          setMessage("Popup blocked. Please allow popups and try again.");
+        }
+      } else {
+        setMessage(data.message || "Failed to get Upstox login URL");
+      }
+    } catch (error) {
+      setMessage("Failed to connect to Upstox");
+    }
   }
 
   function showOrderToast(msg: string) {
@@ -142,6 +204,13 @@ export default function QuotesPage() {
       const price = data.execution_price ?? data.price;
       const filled = data.filled_quantity ?? data.quantity;
       showOrderToast(`Order OK: ${orderSide} ${filled} ${orderSymbol} @ ${price}`);
+      
+      // Auto-refresh trading history if it's currently visible
+      if (showHistory) {
+        setTimeout(() => {
+          fetchTradingHistory();
+        }, 500);
+      }
     } catch (error: unknown) {
       showOrderToast("Failed to place order");
     }
@@ -155,21 +224,42 @@ export default function QuotesPage() {
     }
   }
 
+  async function fetchTradingHistory() {
+    try {
+      const res = await fetch(`${backendUrl}/api/v1/paper/history`);
+      const data = await res.json();
+      if (data.success) {
+        setTradingHistory(data.orders || []);
+        setMessage(`Loaded ${data.total_orders} paper trading orders`);
+      }
+    } catch {
+      setMessage("Failed to fetch trading history");
+    }
+  }
+
   async function fetchQuotes() {
     setLoading(true);
     setMessage("");
     try {
       const qs = encodeURIComponent(symbols);
+      // Pass live_data_enabled parameter to backend
+      const liveParam = liveEnabled ? 'true' : 'false';
       const res = await fetch(
-        `${backendUrl}/api/v1/market-data/batch?symbols=${qs}`
+        `${backendUrl}/api/v1/market-data/batch?symbols=${qs}&live_data_enabled=${liveParam}`
       );
       const data = await res.json();
+      console.log('Market data response:', data);
+      
       const items: Quote[] = (data.symbols_returned || []).map((s: string) => {
         const md = data.data?.[s];
         return {
           symbol: s,
           last_price: md?.last_price,
           timestamp: md?.timestamp,
+          source: data.source,  // Add source information
+          live_mode: data.live_mode,
+          volume: md?.volume,
+          change_percent: md?.change_percent
         };
       });
 
@@ -181,6 +271,10 @@ export default function QuotesPage() {
       });
 
       setQuotes(items);
+      
+      // Show data source status
+      const dataSourceMsg = data.live_mode ? "📡 Fetched LIVE market data" : "🎯 Fetched DEMO data";
+      setMessage(dataSourceMsg);
     } catch (error: unknown) {
       setMessage("Failed to fetch quotes");
     } finally {
@@ -192,6 +286,57 @@ export default function QuotesPage() {
   useEffect(() => {
     fetchFlag();
     checkUpstoxStatus();
+    
+    // Handle OAuth callback (from URL parameters)
+    const urlParams = new URLSearchParams(window.location.search);
+    const authResult = urlParams.get('auth');
+    const authCode = urlParams.get('code');
+    
+    if (authResult === 'success' && authCode) {
+      setMessage("Upstox login successful! Checking connection status...");
+      // Clear the URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
+      // Recheck status after a brief delay
+      setTimeout(() => {
+        checkUpstoxStatus();
+      }, 1000);
+    } else if (authResult === 'error') {
+      setMessage("Upstox login failed. Please try again.");
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    
+    // Handle OAuth callback from popup window
+    const handlePopupMessage = (event: MessageEvent) => {
+      console.log('Received message from popup:', event.data, 'Origin:', event.origin);
+      
+      // Accept messages from localhost origins (for development)
+      if (!event.origin.startsWith('http://localhost')) {
+        console.warn('Rejecting message from untrusted origin:', event.origin);
+        return;
+      }
+      
+      if (event.data && event.data.type === 'UPSTOX_AUTH_RESULT') {
+        if (event.data.success) {
+          setMessage(`✅ Upstox authentication successful! Code: ${event.data.code}`);
+          // Recheck status after a brief delay
+          setTimeout(() => {
+            checkUpstoxStatus();
+            setMessage("Connection status updated.");
+          }, 1500);
+        } else {
+          setMessage(`❌ Upstox authentication failed: ${event.data.error}`);
+        }
+      }
+    };
+    
+    // Add message listener for popup communication
+    window.addEventListener('message', handlePopupMessage);
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener('message', handlePopupMessage);
+    };
+    
     // Do not auto-fetch quotes on mount to avoid flashing; user can click Fetch
   }, []);
 
@@ -323,11 +468,34 @@ export default function QuotesPage() {
 
       {message && <div className="text-red-600 mb-2">{message}</div>}
 
+      {/* Data Source Indicator */}
+      {quotes.length > 0 && (
+        <div className="mb-3 flex items-center gap-2">
+          <span className={`px-3 py-1 rounded text-sm font-semibold ${
+            quotes[0]?.live_mode 
+              ? 'bg-green-100 text-green-800 border border-green-300' 
+              : 'bg-yellow-100 text-yellow-800 border border-yellow-300'
+          }`}>
+            {quotes[0]?.live_mode ? '📡 LIVE DATA' : '🎯 DEMO MODE'}
+          </span>
+          <span className="text-xs text-gray-600">
+            Source: {quotes[0]?.source || 'unknown'}
+          </span>
+          {quotes[0]?.live_mode && (
+            <span className="text-xs text-green-600 font-semibold">
+              ✓ Upstox Connected
+            </span>
+          )}
+        </div>
+      )}
+
       <table className="w-full border-collapse">
         <thead>
           <tr>
             <th className="border px-2 py-1 text-left">Symbol</th>
             <th className="border px-2 py-1 text-right">Last Price</th>
+            <th className="border px-2 py-1 text-right">Change %</th>
+            <th className="border px-2 py-1 text-right">Volume</th>
             <th className="border px-2 py-1">Timestamp</th>
             <th className="border px-2 py-1">Status</th>
           </tr>
@@ -345,6 +513,16 @@ export default function QuotesPage() {
               </td>
               <td className="border px-2 py-1 text-right">
                 {q.last_price !== undefined ? q.last_price.toFixed(2) : "-"}
+              </td>
+              <td className="border px-2 py-1 text-right">
+                {q.change_percent !== undefined ? (
+                  <span className={q.change_percent >= 0 ? "text-green-600" : "text-red-600"}>
+                    {q.change_percent >= 0 ? "+" : ""}{q.change_percent.toFixed(2)}%
+                  </span>
+                ) : "-"}
+              </td>
+              <td className="border px-2 py-1 text-right text-sm">
+                {q.volume ? q.volume.toLocaleString() : "-"}
               </td>
               <td className="border px-2 py-1">
                 {q.timestamp ? new Date(q.timestamp).toLocaleTimeString() : "-"}
@@ -426,6 +604,17 @@ export default function QuotesPage() {
           >
             Place Paper Order
           </button>
+          <button
+            className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700"
+            onClick={() => {
+              setShowHistory(!showHistory);
+              if (!showHistory) {
+                fetchTradingHistory();
+              }
+            }}
+          >
+            {showHistory ? "Hide History" : "View History"}
+          </button>
           {orderMsg && (
             <div className={`text-sm px-3 py-1 rounded ${
               orderMsg.includes("OK") ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
@@ -438,6 +627,55 @@ export default function QuotesPage() {
         <p className="text-xs text-gray-600 mt-2">
           Click on any symbol above to quick-fill the order ticket
         </p>
+
+        {/* Paper Trading History */}
+        {showHistory && (
+          <div className="mt-4 border rounded p-4 bg-gray-50">
+            <h3 className="text-lg font-semibold mb-2">
+              Paper Trading History ({tradingHistory.length} orders)
+            </h3>
+            {tradingHistory.length === 0 ? (
+              <p className="text-gray-600">No paper trades yet. Place your first order!</p>
+            ) : (
+              <div className="max-h-64 overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-300">
+                      <th className="text-left p-2 font-semibold">Order ID</th>
+                      <th className="text-left p-2 font-semibold">Symbol</th>
+                      <th className="text-left p-2 font-semibold">Side</th>
+                      <th className="text-left p-2 font-semibold">Qty</th>
+                      <th className="text-left p-2 font-semibold">Price</th>
+                      <th className="text-left p-2 font-semibold">Status</th>
+                      <th className="text-left p-2 font-semibold">Time</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tradingHistory.map((order, idx) => (
+                      <tr key={idx} className="border-b border-gray-200 hover:bg-white">
+                        <td className="p-2 font-mono text-xs text-blue-600">{order.order_id}</td>
+                        <td className="p-2 font-semibold">{order.symbol}</td>
+                        <td className="p-2">
+                          <span className={order.side === 'BUY' ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                            {order.side}
+                          </span>
+                        </td>
+                        <td className="p-2">{order.quantity}</td>
+                        <td className="p-2 font-mono">₹{order.execution_price}</td>
+                        <td className="p-2">
+                          <span className="text-green-600 font-semibold">{order.status}</span>
+                        </td>
+                        <td className="p-2 text-xs text-gray-600">
+                          {new Date(order.timestamp).toLocaleTimeString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

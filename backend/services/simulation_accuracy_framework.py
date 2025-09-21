@@ -13,9 +13,9 @@ import statistics
 import random
 from loguru import logger
 
-from models.trading import Order, OrderType, OrderStatus
-from models.market_data import MarketData
-from services.market_data_service import MarketDataPipeline
+from backend.models.trading import Order, OrderType, OrderStatus
+from backend.models.market_data import MarketData
+from backend.services.market_data_service import MarketDataPipeline
 
 
 @dataclass

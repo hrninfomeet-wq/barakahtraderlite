@@ -1,0 +1,24 @@
+react-dom-client.development.js:25630 Download the React DevTools for a better development experience: https://react.dev/link/react-devtools
+turbopack-hot-reloader-common.ts:43 [Fast Refresh] rebuilding
+report-hmr-latency.ts:26 [Fast Refresh] done in 180ms
+page.tsx:49 Live data flag response: Object
+page.tsx:87 Upstox status response: Object
+page.tsx:73 Live data toggle response: Object
+:8000/api/v1/auth/upstox/disconnect:1   Failed to load resource: the server responded with a status of 404 (Not Found)
+page.tsx:73 Live data toggle response: Object
+page.tsx:287 Received message from popup: Object Origin: http://localhost:8000
+page.tsx:287 Received message from popup: Object Origin: http://localhost:8000
+page.tsx:87 Upstox status response: Object
+page.tsx:87 Upstox status response: Object
+page.tsx:87 Upstox status response: Object
+page.tsx:87 Upstox status response: Object
+page.tsx:73 Live data toggle response: Object
+page.tsx:73 Live data toggle response: Object
+page.tsx:87 Upstox status response: Object
+turbopack-hot-reloader-common.ts:43 [Fast Refresh] rebuilding
+report-hmr-latency.ts:26 [Fast Refresh] done in 116ms
+[NEW] Explain Console errors by using Copilot in Edge: click
+         
+         to explain an error. 
+        Learn more
+        Don't show again
