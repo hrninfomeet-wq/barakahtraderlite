@@ -33,6 +33,14 @@ import uvicorn
 from datetime import datetime
 import random
 
+# Import educational router
+try:
+    from api.v1.education import router as education_router
+    EDUCATIONAL_SYSTEM_AVAILABLE = True
+except ImportError as e:
+    print(f"⚠️ Educational system not available: {e}")
+    EDUCATIONAL_SYSTEM_AVAILABLE = False
+
 def ensure_paper_mode():
     """Critical Security: Prevent accidental live trades per QA requirement TECH-001"""
     if TRADING_MODE != "PAPER":
@@ -59,6 +67,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include educational router if available
+if EDUCATIONAL_SYSTEM_AVAILABLE:
+    app.include_router(education_router)
+    print("✅ Educational system router integrated")
+else:
+    print("❌ Educational system router not available")
 
 paper_trading_history = []
 
