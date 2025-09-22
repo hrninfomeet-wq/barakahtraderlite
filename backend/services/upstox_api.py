@@ -203,5 +203,16 @@ class UpstoxAPIService:
         except Exception as e:
             return {"error": str(e)}
 
+    def get_status(self) -> Dict[str, Any]:
+        """Get current authentication status"""
+        return {
+            'has_api_key': bool(self.client_id),
+            'has_access_token': bool(self.access_token),
+            'has_credentials': self.has_credentials(),
+            'status': 'authenticated' if self.has_credentials() else 'disconnected',
+            'requires_login': not bool(self.access_token),
+            'provider': 'upstox',
+        }
+
 # Singleton instance
 upstox_service = UpstoxAPIService()
