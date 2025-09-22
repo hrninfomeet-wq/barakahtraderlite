@@ -32,6 +32,7 @@ from fastapi.responses import HTMLResponse
 import uvicorn
 from datetime import datetime
 import random
+from loguru import logger
 
 # Import educational router
 try:
@@ -185,34 +186,28 @@ async def upstox_disconnect():
 @app.get("/api/v1/market-data/batch")
 async def get_market_data_batch(symbols: str, live_data_enabled: bool = True):
     """Get market data - Live or Demo mode"""
+    from services.upstox_api import UpstoxAPIService
+    
     symbol_list = [s.strip() for s in symbols.split(',') if s.strip()]
-    upstox_token = os.getenv("UPSTOX_ACCESS_TOKEN")
-    upstox_client_id = os.getenv("UPSTOX_CLIENT_ID")
-    has_upstox_credentials = bool(upstox_token and upstox_client_id)
-    use_live_data = has_upstox_credentials and live_data_enabled
     
-    data = {}
-    for symbol in symbol_list:
-        base_price = {"RELIANCE": 2500, "TCS": 3500, "NIFTY": 19500}.get(symbol, 1000)
-        variation = random.uniform(-0.005, 0.005) if use_live_data else random.uniform(-0.02, 0.02)
-        last_price = round(base_price * (1 + variation), 2)
-        
-        data[symbol] = {
-            "last_price": last_price,
-            "timestamp": datetime.now().isoformat(),
-            "change": round(last_price - base_price, 2),
-            "change_percent": round(variation * 100, 2),
-            "volume": random.randint(50000, 200000) if use_live_data else random.randint(10000, 50000)
-        }
+    # Initialize Upstox service
+    upstox_service = UpstoxAPIService()
     
+    # Check if we should use live data
+    use_live_data = upstox_service.has_credentials() and live_data_enabled
+    
+    if use_live_data:
+        # Use real Upstox API
+        logger.info(f"Fetching LIVE market data for {len(symbol_list)} symbols via Upstox API")
+        result = await upstox_service.get_market_data(symbol_list)
+    else:
+        # Use demo data
+        logger.info(f"Generating DEMO market data for {len(symbol_list)} symbols")
+        result = upstox_service._generate_demo_data(symbol_list)
+    
+    # Add security headers and return
     return {
-        "success": True,
-        "symbols_requested": symbol_list,
-        "symbols_returned": symbol_list,
-        "data": data,
-        "source": "upstox_live_data" if use_live_data else "demo_data",
-        "live_mode": use_live_data,
-        "timestamp": datetime.now().isoformat(),
+        **result,
         **get_security_headers()
     }
 
