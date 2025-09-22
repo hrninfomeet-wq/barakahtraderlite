@@ -20,7 +20,9 @@ class FlattradeAPIService:
         self.client_code = os.getenv('FLATTRADE_CLIENT_CODE')
         self.request_code = os.getenv('FLATTRADE_REQUEST_CODE')
         self.api_url = os.getenv('FLATTRADE_API_URL', 'https://piconnect.flattrade.in/PiConnectTP/')
-        self.redirect_uri = os.getenv('FLATTRADE_REDIRECT_URI', 'http://localhost:5000/api/login/callback')
+        # Use Replit domain for OAuth redirect
+        replit_domain = os.getenv('REPLIT_DEV_DOMAIN') or 'localhost:8000'
+        self.redirect_uri = os.getenv('FLATTRADE_REDIRECT_URI', f'https://{replit_domain}/api/v1/auth/flattrade/callback')
         
         # Log initialization status
         has_key = "✓" if self.api_key else "✗"

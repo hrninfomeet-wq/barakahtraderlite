@@ -18,7 +18,9 @@ class AliceBlueAPIService:
         self.app_code = os.getenv('ALICEBLUE_APP_CODE')
         self.api_secret = os.getenv('ALICEBLUE_API_SECRET')
         self.base_url = os.getenv('ALICEBLUE_API_BASE_URL', 'https://ant.aliceblueonline.com/api/v2')
-        self.redirect_uri = os.getenv('ALICEBLUE_REDIRECT_URI', 'http://localhost:5000/api/providers/auth/aliceblue/callback')
+        # Use Replit domain for OAuth redirect
+        replit_domain = os.getenv('REPLIT_DEV_DOMAIN') or 'localhost:8000'
+        self.redirect_uri = os.getenv('ALICEBLUE_REDIRECT_URI', f'https://{replit_domain}/api/v1/auth/aliceblue/callback')
         self.access_token = None  # Will be set after authentication
         
         # Log initialization status

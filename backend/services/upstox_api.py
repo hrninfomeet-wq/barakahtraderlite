@@ -202,3 +202,6 @@ class UpstoxAPIService:
                     
         except Exception as e:
             return {"error": str(e)}
+
+# Singleton instance
+upstox_service = UpstoxAPIService()

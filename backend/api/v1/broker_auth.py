@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from typing import Dict, Any, Optional
 from loguru import logger
 
-from backend.services.broker_manager import broker_manager
+from services.broker_manager import broker_manager
 
 router = APIRouter(prefix="/auth", tags=["Broker Authentication"])
 
@@ -72,7 +72,7 @@ async def broker_callback(broker_id: str, code: Optional[str] = None, error: Opt
             type: '{broker_id.upper()}_AUTH_RESULT',
             success: false,
             error: '{error}'
-        }}, '*');
+        }}, 'https://{os.getenv("REPLIT_DEV_DOMAIN") or "localhost:5000"}');
         window.close();
         </script>
         <p>Authentication failed: {error}</p>
@@ -92,7 +92,7 @@ async def broker_callback(broker_id: str, code: Optional[str] = None, error: Opt
             type: '{broker_id.upper()}_AUTH_RESULT',
             success: false,
             error: 'Missing authorization code'
-        }}, '*');
+        }}, 'https://{os.getenv("REPLIT_DEV_DOMAIN") or "localhost:5000"}');
         window.close();
         </script>
         <p>Authentication failed: Missing authorization code</p>
@@ -116,7 +116,7 @@ async def broker_callback(broker_id: str, code: Optional[str] = None, error: Opt
                 type: '{broker_id.upper()}_AUTH_RESULT',
                 success: false,
                 error: '{token_result.get("error")}'
-            }}, '*');
+            }}, 'https://{os.getenv("REPLIT_DEV_DOMAIN") or "localhost:5000"}');
             window.close();
             </script>
             <p>Token exchange failed: {token_result.get('error')}</p>
@@ -137,7 +137,7 @@ async def broker_callback(broker_id: str, code: Optional[str] = None, error: Opt
             type: '{broker_id.upper()}_AUTH_RESULT',
             success: true,
             code: '{code}'
-        }}, '*');
+        }}, 'https://{os.getenv("REPLIT_DEV_DOMAIN") or "localhost:5000"}');
         window.close();
         </script>
         <h2>✅ Authentication Successful!</h2>
@@ -158,7 +158,7 @@ async def broker_callback(broker_id: str, code: Optional[str] = None, error: Opt
             type: '{broker_id.upper()}_AUTH_RESULT',
             success: false,
             error: 'Server error during authentication'
-        }}, '*');
+        }}, 'https://{os.getenv("REPLIT_DEV_DOMAIN") or "localhost:5000"}');
         window.close();
         </script>
         <p>Authentication failed: Server error</p>

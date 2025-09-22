@@ -19,7 +19,9 @@ class FyersAPIService:
         self.api_secret = os.getenv('FYERS_API_SECRET')
         self.access_token = os.getenv('FYERS_ACCESS_TOKEN')
         self.base_url = 'https://api-t1.fyers.in/api/v3'
-        self.redirect_uri = 'http://localhost:5000/api/auth/fyers/callback'
+        # Use Replit domain for OAuth redirect
+        replit_domain = os.getenv('REPLIT_DEV_DOMAIN') or 'localhost:8000'
+        self.redirect_uri = f'https://{replit_domain}/api/v1/auth/fyers/callback'
         
         # Log initialization status
         has_key = "✓" if self.api_key else "✗"

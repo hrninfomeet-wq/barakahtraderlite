@@ -8,10 +8,10 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 from loguru import logger
 
-from backend.services.upstox_api import upstox_service
-from backend.services.flattrade_api import flattrade_service
-from backend.services.fyers_api import fyers_service
-from backend.services.aliceblue_api import aliceblue_service
+from services.upstox_api import upstox_service
+from services.flattrade_api import flattrade_service
+from services.fyers_api import fyers_service
+from services.aliceblue_api import aliceblue_service
 
 class BrokerManager:
     def __init__(self):
@@ -179,7 +179,14 @@ class BrokerManager:
             return {"error": f"Unknown broker: {broker_id}"}
         
         service = self.brokers[broker_id]
-        return await service.exchange_code_for_token(auth_code)
+        result = await service.exchange_code_for_token(auth_code)
+        
+        # Ensure token is persisted in the service after successful exchange
+        if not result.get("error") and result.get("access_token"):
+            service.access_token = result["access_token"]
+            logger.info(f"Token successfully persisted for {broker_id}")
+        
+        return result
     
     def disconnect_broker(self, broker_id: str) -> Dict[str, Any]:
         """Disconnect a specific broker"""
