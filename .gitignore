@@ -256,5 +256,12 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
-#Ignore cursor AI rules
+# Ignore cursor AI rules
 .cursor\rules\codacy.mdc
+
+# Replit-specific
+.pythonlibs/
+pyproject.toml
+uv.lock
+.replit
+replit.nix

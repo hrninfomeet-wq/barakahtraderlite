@@ -53,3 +53,8 @@ waitForPort = 8000
 
 [workflows.workflow.metadata]
 outputType = "console"
+
+[deployment]
+deploymentTarget = "autoscale"
+run = ["bash", "-c", "cd backend && python main.py & npm run start"]
+build = ["npm", "run", "build"]
