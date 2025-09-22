@@ -184,7 +184,7 @@ export default function ProgressPage() {
         {/* Skill Levels */}
         <Card title="Skill Levels">
           <div className="space-y-4">
-            {Object.entries(data.skill_levels).map(([skill, level]: [string, number]) => (
+            {Object.entries(data.skill_levels as Record<string, number>).map(([skill, level]) => (
               <div key={skill}>
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-sm font-medium text-gray-700">{skill}</span>

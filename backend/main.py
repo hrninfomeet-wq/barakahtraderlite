@@ -73,6 +73,14 @@ app.add_middleware(
 if EDUCATIONAL_SYSTEM_AVAILABLE:
     app.include_router(education_router)
     print("✅ Educational system router integrated")
+
+# Include broker authentication router
+try:
+    from api.v1.broker_auth import router as broker_auth_router
+    app.include_router(broker_auth_router, prefix="/api/v1")
+    print("✅ Multi-broker authentication router integrated")
+except ImportError as e:
+    print(f"⚠️ Broker authentication not available: {e}")
 else:
     print("❌ Educational system router not available")
 
@@ -185,31 +193,44 @@ async def upstox_disconnect():
 
 @app.get("/api/v1/market-data/batch")
 async def get_market_data_batch(symbols: str, live_data_enabled: bool = True):
-    """Get market data - Live or Demo mode"""
-    from services.upstox_api import UpstoxAPIService
-    
-    symbol_list = [s.strip() for s in symbols.split(',') if s.strip()]
-    
-    # Initialize Upstox service
-    upstox_service = UpstoxAPIService()
-    
-    # Check if we should use live data
-    use_live_data = upstox_service.has_credentials() and live_data_enabled
-    
-    if use_live_data:
-        # Use real Upstox API
-        logger.info(f"Fetching LIVE market data for {len(symbol_list)} symbols via Upstox API")
-        result = await upstox_service.get_market_data(symbol_list)
-    else:
-        # Use demo data
-        logger.info(f"Generating DEMO market data for {len(symbol_list)} symbols")
+    """Get market data with multi-broker failover - Live or Demo mode"""
+    try:
+        from services.broker_manager import broker_manager
+        symbol_list = [s.strip() for s in symbols.split(',') if s.strip()]
+        
+        if live_data_enabled:
+            # Use multi-broker system with smart failover
+            logger.info(f"Fetching LIVE market data for {len(symbol_list)} symbols via multi-broker system")
+            result = await broker_manager.get_market_data_with_failover(symbol_list)
+            
+            # If multi-broker failed, fallback to demo data
+            if result.get("error") or not result.get("data"):
+                logger.warning("Multi-broker system failed, falling back to demo data")
+                from services.upstox_api import UpstoxAPIService
+                upstox_service = UpstoxAPIService()
+                result = upstox_service._generate_demo_data(symbol_list)
+        else:
+            # Use demo data
+            logger.info(f"Generating DEMO market data for {len(symbol_list)} symbols")
+            from services.upstox_api import UpstoxAPIService
+            upstox_service = UpstoxAPIService()
+            result = upstox_service._generate_demo_data(symbol_list)
+        
+        # Add security headers and return
+        return {
+            **result,
+            **get_security_headers()
+        }
+    except Exception as e:
+        logger.error(f"Market data error: {str(e)}")
+        # Fallback to demo data on any error
+        from services.upstox_api import UpstoxAPIService
+        upstox_service = UpstoxAPIService()
         result = upstox_service._generate_demo_data(symbol_list)
-    
-    # Add security headers and return
-    return {
-        **result,
-        **get_security_headers()
-    }
+        return {
+            **result,
+            **get_security_headers()
+        }
 
 @app.post("/api/v1/paper/order")
 async def place_paper_order(order_data: dict):
