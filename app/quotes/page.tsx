@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "https://1b7fd467-acf6-4bd1-9040-93062c84f787-00-2w14iyh83mugu.sisko.replit.dev:8000";
 
 type Quote = {
   symbol: string;

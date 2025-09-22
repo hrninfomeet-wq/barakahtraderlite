@@ -54,7 +54,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["*"],  # Allow all origins for Replit environment
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -139,7 +139,7 @@ async def upstox_callback_handler(code: str = None, state: str = None, error: st
             window.opener.postMessage({{type: 'UPSTOX_AUTH_RESULT', success: false, error: '{error_msg}'}}, '*');
             window.close();
         }} else {{
-            window.location.href = 'http://localhost:3000/quotes?auth=error&error={error_msg}';
+            window.location.href = 'https://1b7fd467-acf6-4bd1-9040-93062c84f787-00-2w14iyh83mugu.sisko.replit.dev:5000/quotes?auth=error&error={error_msg}';
         }}
         </script></body></html>'''
         return HTMLResponse(content=html)
@@ -150,7 +150,7 @@ async def upstox_callback_handler(code: str = None, state: str = None, error: st
         window.opener.postMessage({{type: 'UPSTOX_AUTH_RESULT', success: true, code: '{code}', state: '{state}'}}, '*');
         window.close();
     }} else {{
-        window.location.href = 'http://localhost:3000/quotes?auth=success&code={code}&state={state}';
+        window.location.href = 'https://1b7fd467-acf6-4bd1-9040-93062c84f787-00-2w14iyh83mugu.sisko.replit.dev:5000/quotes?auth=success&code={code}&state={state}';
     }}
     </script></body></html>'''
     return HTMLResponse(content=html)
@@ -317,7 +317,7 @@ if __name__ == "__main__":
     
     uvicorn.run(
         "main:app",
-        host="0.0.0.0",
+        host="localhost",
         port=8000,
         reload=True,
         log_level="info"
