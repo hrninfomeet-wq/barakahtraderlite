@@ -259,9 +259,19 @@ dmypy.json
 # Ignore cursor AI rules
 .cursor\rules\codacy.mdc
 
-# Replit-specific
+# Replit-specific (exclude system files, include essential config)
 .pythonlibs/
-pyproject.toml
-uv.lock
 .replit
 replit.nix
+.config/
+.cache/
+.upm/
+
+# IMPORTANT: Include essential project files
+# pyproject.toml - Python project configuration (INCLUDE)
+# uv.lock - Python dependencies lock file (INCLUDE)
+# package.json - Node.js dependencies (INCLUDE)
+# package-lock.json - Node.js lock file (INCLUDE)
+
+# Attached assets (exclude to prevent committing sensitive data)
+attached_assets/
