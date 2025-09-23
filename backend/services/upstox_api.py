@@ -25,6 +25,60 @@ class UpstoxAPIService:
             
         logger.info(f"UpstoxAPIService initialized - Token: {'✓' if self.access_token else '✗'}, Client: {'✓' if self.client_id else '✗'}")
     
+    def get_auth_url(self) -> str:
+        """Generate OAuth authentication URL for Upstox"""
+        if not self.client_id:
+            raise ValueError("Upstox client ID not configured")
+        
+        # Upstox OAuth URL construction 
+        redirect_uri = f"https://{os.getenv('REPLIT_DEV_DOMAIN', 'localhost:5000')}/api/v1/auth/upstox/callback"
+        auth_url = f"https://api.upstox.com/v2/login/authorization/dialog?" \
+                  f"response_type=code&" \
+                  f"client_id={self.client_id}&" \
+                  f"redirect_uri={redirect_uri}&" \
+                  f"state=upstox_auth"
+        
+        return auth_url
+    
+    async def exchange_code_for_token(self, auth_code: str) -> Dict[str, Any]:
+        """Exchange authorization code for access token"""
+        try:
+            if not self.client_id or not self.api_secret:
+                return {"error": "Missing Upstox client credentials"}
+            
+            redirect_uri = f"https://{os.getenv('REPLIT_DEV_DOMAIN', 'localhost:5000')}/api/v1/auth/upstox/callback"
+            
+            async with httpx.AsyncClient() as client:
+                # Upstox token exchange endpoint
+                response = await client.post(
+                    "https://api.upstox.com/v2/login/authorization/token",
+                    data={
+                        'code': auth_code,
+                        'client_id': self.client_id,
+                        'client_secret': self.api_secret,
+                        'redirect_uri': redirect_uri,
+                        'grant_type': 'authorization_code',
+                    },
+                    headers={
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    timeout=30.0
+                )
+                
+                if response.status_code == 200:
+                    token_data = response.json()
+                    self.access_token = token_data.get('access_token')
+                    logger.info("Upstox token exchange successful")
+                    return token_data
+                else:
+                    logger.error(f"Upstox token exchange failed: {response.status_code} - {response.text}")
+                    return {"error": "Token exchange failed", "details": response.text}
+                    
+        except Exception as e:
+            logger.error(f"Upstox token exchange error: {str(e)}")
+            return {"error": "Token exchange failed", "exception": str(e)}
+    
     def has_credentials(self) -> bool:
         """Check if we have necessary credentials"""
         return bool(self.access_token and self.client_id)

@@ -131,65 +131,11 @@ async def upstox_auth_status():
         **get_security_headers()
     }
 
-@app.get("/api/v1/auth/upstox/login")
-async def upstox_login():
-    """Initiate Upstox login process"""
-    client_id = os.getenv("UPSTOX_CLIENT_ID")
-    redirect_uri = os.getenv("UPSTOX_REDIRECT_URI")
-    base_url = os.getenv("UPSTOX_BASE_URL", "https://api.upstox.com/v2")
+# Upstox authentication now handled by unified broker system in /api/v1/auth/
 
-    if not client_id or not redirect_uri:
-        return {"error": "Missing Upstox configuration", **get_security_headers()}
+# Legacy callback handler removed - now using unified broker authentication system
 
-    auth_url = f"{base_url}/login/authorization/dialog?response_type=code&client_id={client_id}&redirect_uri={redirect_uri}&state=development"
-
-    return {
-        "auth_url": auth_url,
-        "status": "redirect_required",
-        "message": "Redirect to Upstox for authentication",
-        "client_id": client_id,
-        "redirect_uri": redirect_uri,
-        "timestamp": datetime.now().isoformat(),
-        **get_security_headers()
-    }
-
-async def upstox_callback_handler(code: str = None, state: str = None, error: str = None):
-    """OAuth callback handler"""
-    if error or not code:
-        error_msg = error or 'no_code'
-        html = f'''<html><body><h3>Auth Failed: {error_msg}</h3>
-        <script>
-        if (window.opener) {{
-            window.opener.postMessage({{type: 'UPSTOX_AUTH_RESULT', success: false, error: '{error_msg}'}}, '*');
-            window.close();
-        }} else {{
-            window.location.href = 'https://1b7fd467-acf6-4bd1-9040-93062c84f787-00-2w14iyh83mugu.sisko.replit.dev:5000/quotes?auth=error&error={error_msg}';
-        }}
-        </script></body></html>'''
-        return HTMLResponse(content=html)
-    
-    html = f'''<html><body><h3>✅ Success!</h3><p>Code: {code}</p>
-    <script>
-    if (window.opener) {{
-        window.opener.postMessage({{type: 'UPSTOX_AUTH_RESULT', success: true, code: '{code}', state: '{state}'}}, '*');
-        window.close();
-    }} else {{
-        window.location.href = 'https://1b7fd467-acf6-4bd1-9040-93062c84f787-00-2w14iyh83mugu.sisko.replit.dev:5000/quotes?auth=success&code={code}&state={state}';
-    }}
-    </script></body></html>'''
-    return HTMLResponse(content=html)
-
-@app.get("/callback")
-async def upstox_simple_callback(code: str = None, state: str = None, error: str = None):
-    return await upstox_callback_handler(code, state, error)
-
-@app.get("/api/v1/auth/upstox/callback")
-async def upstox_callback(code: str = None, state: str = None, error: str = None):
-    return await upstox_callback_handler(code, state, error)
-
-@app.delete("/api/v1/auth/upstox/disconnect")
-async def upstox_disconnect():
-    return {"success": True, "status": "disconnected", **get_security_headers()}
+# Legacy callback endpoints removed - now using unified broker system at /api/v1/auth/{broker}/callback
 
 @app.get("/api/v1/market-data/batch")
 async def get_market_data_batch(symbols: str, live_data_enabled: bool = True):

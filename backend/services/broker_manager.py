@@ -28,6 +28,38 @@ class BrokerManager:
         
         logger.info(f"BrokerManager initialized with {len(self.brokers)} brokers")
     
+    def get_auth_url(self, broker_id: str) -> str:
+        """Get OAuth authentication URL for a specific broker"""
+        if broker_id not in self.brokers:
+            raise ValueError(f"Unknown broker: {broker_id}")
+        
+        service = self.brokers[broker_id]
+        if not hasattr(service, 'get_auth_url'):
+            raise ValueError(f"Broker {broker_id} does not support OAuth authentication")
+        
+        return service.get_auth_url()
+    
+    async def exchange_code_for_token(self, broker_id: str, auth_code: str) -> Dict[str, Any]:
+        """Exchange authorization code for access token"""
+        if broker_id not in self.brokers:
+            return {"error": f"Unknown broker: {broker_id}"}
+        
+        service = self.brokers[broker_id]
+        if not hasattr(service, 'exchange_code_for_token'):
+            return {"error": f"Broker {broker_id} does not support token exchange"}
+        
+        try:
+            result = await service.exchange_code_for_token(auth_code)
+            if result.get('error'):
+                return result
+            else:
+                # Token exchange successful, refresh status
+                logger.info(f"{broker_id} authentication completed successfully")
+                return {"success": True, "broker": broker_id, "token_data": result}
+        except Exception as e:
+            logger.error(f"Error during {broker_id} token exchange: {str(e)}")
+            return {"error": f"Token exchange failed: {str(e)}"}
+    
     def get_connected_brokers(self) -> List[str]:
         """Get list of brokers that are currently connected and valid"""
         connected = []
