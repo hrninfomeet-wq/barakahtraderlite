@@ -35,6 +35,7 @@ import random
 from loguru import logger
 
 # Import educational router
+education_router = None
 try:
     from api.v1.education import router as education_router
     EDUCATIONAL_SYSTEM_AVAILABLE = True
