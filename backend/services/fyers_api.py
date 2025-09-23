@@ -8,6 +8,7 @@ import asyncio
 import httpx
 from typing import Dict, Any, Optional
 import json
+import hashlib
 from datetime import datetime
 from loguru import logger
 
@@ -56,8 +57,7 @@ class FyersAPIService:
                     "https://api.fyers.in/api/v2/validate-authcode",
                     json={
                         'grant_type': 'authorization_code',
-                        'client_id': self.api_key,
-                        'secret_key': self.api_secret,
+                        'appIdHash': hashlib.sha256(f"{self.api_key}:{self.api_secret}".encode('utf-8')).hexdigest(),
                         'code': auth_code
                     },
                     headers={
