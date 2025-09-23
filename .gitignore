@@ -21,6 +21,9 @@ backend/*.cover
 backend/.hypothesis/
 backend/.pytest_cache/
 
+# Old files
+.ignore/
+
 # Environment variables
 .env
 .env.local
