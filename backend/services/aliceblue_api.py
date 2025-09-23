@@ -18,7 +18,7 @@ class AliceBlueAPIService:
         self.user_id = os.getenv('ALICEBLUE_USER_ID') or 'AB104570'
         self.app_code = os.getenv('ALICEBLUE_APP_CODE')
         self.api_secret = os.getenv('ALICEBLUE_API_SECRET')
-        self.base_url = os.getenv('ALICEBLUE_API_BASE_URL', 'https://ant.aliceblueonline.com/open-api/od-rest/v1')
+        self.base_url = os.getenv('ALICEBLUE_API_BASE_URL', 'https://v2api.aliceblueonline.com/restpy/api')
         # Use Replit domain for OAuth redirect
         replit_domain = os.getenv('REPLIT_DEV_DOMAIN') or 'localhost:8000'
         self.redirect_uri = f'https://{replit_domain}/api/v1/auth/aliceblue/callback'
@@ -34,27 +34,28 @@ class AliceBlueAPIService:
         return bool(self.user_id and self.api_secret and self.app_code and self.access_token)
     
     def get_auth_url(self) -> str:
-        """AliceBlue uses API key authentication, not OAuth2"""
-        raise ValueError("AliceBlue uses API key authentication, not OAuth2. Please configure API key directly in environment variables.")
+        """AliceBlue uses session-based authentication with username/password"""
+        # AliceBlue uses session-based authentication, not OAuth2
+        # Return a special URL to indicate session auth is needed
+        return "session_auth_required"
     
     async def exchange_code_for_token(self, auth_code: str) -> Dict[str, Any]:
         """AliceBlue doesn't use OAuth2 - this method shouldn't be called"""
-        return {"error": "AliceBlue uses API key authentication, not OAuth2. Use authenticate_with_api_key() instead."}
+        return {"error": "AliceBlue uses session-based authentication, not OAuth2. Use login_and_get_session_id() instead."}
     
-    async def authenticate_with_api_key(self, api_key: str) -> Dict[str, Any]:
-        """Authenticate with AliceBlue using API key - their actual authentication method"""
+    async def login_and_get_session_id(self, username: str, password: str, twofa: str, app_id: str, api_secret: str) -> Dict[str, Any]:
+        """AliceBlue session-based authentication - official library pattern"""
         try:
-            if not self.user_id:
-                return {"error": "AliceBlue User ID not configured"}
+            if not all([username, password, twofa, app_id, api_secret]):
+                return {"error": "All credentials required: username, password, 2FA, app_id, api_secret"}
             
-            # Use the correct API base URL from official documentation
-            api_base = self.base_url
+            # AliceBlue developer console API endpoints
+            api_base = "https://v2api.aliceblueonline.com/restpy/api"
             
             async with httpx.AsyncClient() as client:
-                # Step 1: Get encryption key using correct endpoint
-                enc_response = await client.post(
-                    f"{api_base}/vendor/getEncryptionKey",
-                    json={"userId": self.user_id},
+                # Step 1: Get encryption key
+                enc_response = await client.get(
+                    f"{api_base}/admin/enckey",
                     timeout=30.0
                 )
                 
@@ -67,18 +68,22 @@ class AliceBlueAPIService:
                 
                 encryption_key = enc_data['encKey']
                 
-                # Step 2: Generate SHA-256 hash of userId + apiKey + encryptionKey
+                # Step 2: Generate checksum - password + app_secret + encryption_key
                 import hashlib
-                combined_string = f"{self.user_id}{api_key}{encryption_key}"
+                combined_string = f"{password}{api_secret}{encryption_key}"
                 checksum = hashlib.sha256(combined_string.encode()).hexdigest()
                 
-                # Step 3: Get session ID using correct endpoint
+                # Step 3: Login and get session ID
+                login_payload = {
+                    "userId": username,
+                    "userData": checksum,
+                    "twoFA": twofa,
+                    "appId": app_id
+                }
+                
                 auth_response = await client.post(
-                    f"{api_base}/vendor/getUserSID",
-                    json={
-                        "userId": self.user_id,
-                        "userData": checksum
-                    },
+                    f"{api_base}/customer/login",
+                    json=login_payload,
                     timeout=30.0
                 )
                 
@@ -86,18 +91,20 @@ class AliceBlueAPIService:
                     auth_data = auth_response.json()
                     if auth_data.get('stat') == 'Ok' and auth_data.get('sessionID'):
                         self.access_token = auth_data.get('sessionID')
-                        # Store the API key for future use
-                        self.api_secret = api_key  
-                        logger.info("AliceBlue API key authentication successful")
+                        # Store credentials for future use
+                        self.user_id = username
+                        self.app_code = app_id
+                        self.api_secret = api_secret
+                        logger.info("AliceBlue session authentication successful")
                         return {"success": True, "session_id": self.access_token}
                     else:
-                        error_msg = auth_data.get('emsg', 'Unknown authentication error')
+                        error_msg = auth_data.get('emsg', 'Login failed')
                         return {"error": f"Authentication failed: {error_msg}"}
                 else:
-                    return {"error": "Authentication request failed", "details": auth_response.text}
+                    return {"error": "Login request failed", "details": auth_response.text}
                     
         except Exception as e:
-            logger.error(f"AliceBlue API key authentication error: {str(e)}")
+            logger.error(f"AliceBlue session authentication error: {str(e)}")
             return {"error": "Authentication failed", "exception": str(e)}
     
     async def get_market_data(self, symbols: list) -> Dict[str, Any]:
