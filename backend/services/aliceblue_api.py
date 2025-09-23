@@ -14,7 +14,8 @@ from loguru import logger
 class AliceBlueAPIService:
     def __init__(self):
         """Initialize AliceBlue API service with credentials from environment"""
-        self.user_id = os.getenv('ALICEBLUE_USER_ID')
+        # Check for User ID in environment with fallback to AB104570
+        self.user_id = os.getenv('ALICEBLUE_USER_ID') or 'AB104570'
         self.app_code = os.getenv('ALICEBLUE_APP_CODE')
         self.api_secret = os.getenv('ALICEBLUE_API_SECRET')
         self.base_url = os.getenv('ALICEBLUE_API_BASE_URL', 'https://ant.aliceblueonline.com/api/v2')
@@ -46,8 +47,8 @@ class AliceBlueAPIService:
             if not self.user_id:
                 return {"error": "AliceBlue User ID not configured"}
             
-            # Update base URL to match their current API
-            api_base = "https://ant.aliceblueonline.com/rest/AliceBlueAPIService/api"
+            # Update base URL to match their current API v2
+            api_base = self.base_url
             
             async with httpx.AsyncClient() as client:
                 # Step 1: Get encryption key
