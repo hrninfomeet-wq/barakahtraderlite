@@ -169,6 +169,39 @@ async def broker_callback(broker_id: str, code: Optional[str] = None, error: Opt
         """
         return Response(content=html_content, media_type="text/html")
 
+@router.post("/{broker_id}/api-key")
+async def authenticate_broker_with_api_key(broker_id: str, request: Request) -> Dict[str, Any]:
+    """Authenticate broker using API key (for brokers that don't use OAuth)"""
+    try:
+        # Get API key from request body
+        body = await request.json()
+        api_key = body.get('api_key')
+        
+        if not api_key:
+            logger.error(f"{broker_id} API key authentication missing api_key")
+            raise HTTPException(status_code=400, detail="API key is required")
+        
+        # Authenticate using broker manager
+        result = await broker_manager.authenticate_with_api_key(broker_id, api_key)
+        
+        if result.get('success'):
+            logger.info(f"{broker_id} API key authentication successful")
+            return {
+                "success": True,
+                "message": f"{broker_id} authenticated successfully with API key",
+                "broker": broker_id
+            }
+        else:
+            logger.error(f"{broker_id} API key authentication failed: {result.get('error')}")
+            raise HTTPException(status_code=400, detail=result.get('error', 'Authentication failed'))
+            
+    except ValueError as e:
+        logger.error(f"Configuration error for {broker_id}: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error during {broker_id} API key authentication: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to authenticate {broker_id} with API key")
+
 @router.delete("/{broker_id}/disconnect")
 async def disconnect_broker(broker_id: str) -> Dict[str, Any]:
     """Disconnect a specific broker"""

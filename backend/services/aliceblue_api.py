@@ -33,48 +33,71 @@ class AliceBlueAPIService:
         return bool(self.user_id and self.api_secret and self.app_code and self.access_token)
     
     def get_auth_url(self) -> str:
-        """Generate AliceBlue OAuth URL for user authentication"""
-        if not self.app_code:
-            raise ValueError("AliceBlue app code not configured")
-            
-        # AliceBlue OAuth URL construction
-        auth_url = f"https://ant.aliceblueonline.com/oauth2/auth?" \
-                  f"client_id={self.app_code}&" \
-                  f"response_type=code&" \
-                  f"redirect_uri={self.redirect_uri}&" \
-                  f"state=aliceblue_auth"
-        
-        return auth_url
+        """AliceBlue uses API key authentication, not OAuth2"""
+        raise ValueError("AliceBlue uses API key authentication, not OAuth2. Please configure API key directly in environment variables.")
     
     async def exchange_code_for_token(self, auth_code: str) -> Dict[str, Any]:
-        """Exchange authorization code for access token"""
+        """AliceBlue doesn't use OAuth2 - this method shouldn't be called"""
+        return {"error": "AliceBlue uses API key authentication, not OAuth2. Use authenticate_with_api_key() instead."}
+    
+    async def authenticate_with_api_key(self, api_key: str) -> Dict[str, Any]:
+        """Authenticate with AliceBlue using API key - their actual authentication method"""
         try:
+            if not self.user_id:
+                return {"error": "AliceBlue User ID not configured"}
+            
+            # Update base URL to match their current API
+            api_base = "https://ant.aliceblueonline.com/rest/AliceBlueAPIService/api"
+            
             async with httpx.AsyncClient() as client:
-                # AliceBlue token exchange endpoint
-                response = await client.post(
-                    f"{self.base_url}/oauth2/token",
-                    data={
-                        'client_id': self.app_code,
-                        'client_secret': self.api_secret,
-                        'code': auth_code,
-                        'redirect_uri': self.redirect_uri,
-                        'grant_type': 'authorization_code',
+                # Step 1: Get encryption key
+                enc_response = await client.post(
+                    f"{api_base}/customer/getEncryptionKey",
+                    json={"userId": self.user_id},
+                    timeout=30.0
+                )
+                
+                if enc_response.status_code != 200:
+                    return {"error": "Failed to get encryption key", "details": enc_response.text}
+                
+                enc_data = enc_response.json()
+                if not enc_data.get('encKey'):
+                    return {"error": "Invalid encryption key response"}
+                
+                encryption_key = enc_data['encKey']
+                
+                # Step 2: Generate SHA-256 hash of userId + apiKey + encryptionKey
+                import hashlib
+                combined_string = f"{self.user_id}{api_key}{encryption_key}"
+                checksum = hashlib.sha256(combined_string.encode()).hexdigest()
+                
+                # Step 3: Get session ID
+                auth_response = await client.post(
+                    f"{api_base}/customer/getUserSID",
+                    json={
+                        "userId": self.user_id,
+                        "userData": checksum
                     },
                     timeout=30.0
                 )
                 
-                if response.status_code == 200:
-                    token_data = response.json()
-                    self.access_token = token_data.get('access_token')
-                    logger.info("AliceBlue token exchange successful")
-                    return token_data
+                if auth_response.status_code == 200:
+                    auth_data = auth_response.json()
+                    if auth_data.get('stat') == 'Ok' and auth_data.get('sessionID'):
+                        self.access_token = auth_data.get('sessionID')
+                        # Store the API key for future use
+                        self.api_secret = api_key  
+                        logger.info("AliceBlue API key authentication successful")
+                        return {"success": True, "session_id": self.access_token}
+                    else:
+                        error_msg = auth_data.get('emsg', 'Unknown authentication error')
+                        return {"error": f"Authentication failed: {error_msg}"}
                 else:
-                    logger.error(f"AliceBlue token exchange failed: {response.status_code} - {response.text}")
-                    return {"error": "Token exchange failed", "details": response.text}
+                    return {"error": "Authentication request failed", "details": auth_response.text}
                     
         except Exception as e:
-            logger.error(f"AliceBlue token exchange error: {str(e)}")
-            return {"error": "Token exchange failed", "exception": str(e)}
+            logger.error(f"AliceBlue API key authentication error: {str(e)}")
+            return {"error": "Authentication failed", "exception": str(e)}
     
     async def get_market_data(self, symbols: list) -> Dict[str, Any]:
         """Fetch market data for given symbols from AliceBlue API"""

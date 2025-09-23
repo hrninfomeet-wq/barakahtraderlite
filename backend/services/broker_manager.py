@@ -33,6 +33,10 @@ class BrokerManager:
         if broker_id not in self.brokers:
             raise ValueError(f"Unknown broker: {broker_id}")
         
+        # AliceBlue uses API key authentication, not OAuth
+        if broker_id == 'aliceblue':
+            raise ValueError("AliceBlue uses API key authentication. Please use authenticate_with_api_key endpoint instead.")
+        
         service = self.brokers[broker_id]
         if not hasattr(service, 'get_auth_url'):
             raise ValueError(f"Broker {broker_id} does not support OAuth authentication")
@@ -43,6 +47,10 @@ class BrokerManager:
         """Exchange authorization code for access token"""
         if broker_id not in self.brokers:
             return {"error": f"Unknown broker: {broker_id}"}
+        
+        # AliceBlue uses API key authentication, not OAuth
+        if broker_id == 'aliceblue':
+            return {"error": "AliceBlue uses API key authentication. Please use authenticate_with_api_key endpoint instead."}
         
         service = self.brokers[broker_id]
         if not hasattr(service, 'exchange_code_for_token'):
@@ -59,6 +67,30 @@ class BrokerManager:
         except Exception as e:
             logger.error(f"Error during {broker_id} token exchange: {str(e)}")
             return {"error": f"Token exchange failed: {str(e)}"}
+    
+    async def authenticate_with_api_key(self, broker_id: str, api_key: str) -> Dict[str, Any]:
+        """Authenticate broker using API key (for brokers that don't use OAuth)"""
+        if broker_id not in self.brokers:
+            return {"error": f"Unknown broker: {broker_id}"}
+        
+        # Currently only AliceBlue uses API key authentication
+        if broker_id != 'aliceblue':
+            return {"error": f"Broker {broker_id} uses OAuth authentication, not API key"}
+        
+        service = self.brokers[broker_id]
+        if not hasattr(service, 'authenticate_with_api_key'):
+            return {"error": f"Broker {broker_id} does not support API key authentication"}
+        
+        try:
+            result = await service.authenticate_with_api_key(api_key)
+            if result.get('success'):
+                logger.info(f"{broker_id} API key authentication completed successfully")
+                return {"success": True, "broker": broker_id, "auth_data": result}
+            else:
+                return result
+        except Exception as e:
+            logger.error(f"Error during {broker_id} API key authentication: {str(e)}")
+            return {"error": f"API key authentication failed: {str(e)}"}
     
     def get_connected_brokers(self) -> List[str]:
         """Get list of brokers that are currently connected and valid"""
