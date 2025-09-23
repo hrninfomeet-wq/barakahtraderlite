@@ -19,9 +19,18 @@ export default function Home() {
     try {
       const brokers = ['upstox', 'flattrade', 'fyers', 'aliceblue'];
       const promises = brokers.map(async (broker) => {
-        const response = await fetch(`/api/v1/auth/${broker}/status`);
-        const data = await response.json();
-        return { broker, data };
+        try {
+          const response = await fetch(`/api/v1/auth/${broker}/status`);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          const text = await response.text();
+          const data = text ? JSON.parse(text) : {};
+          return { broker, data };
+        } catch (error) {
+          console.error(`Error fetching ${broker} status:`, error);
+          return { broker, data: { provider: broker, status: 'error', requires_login: true } };
+        }
       });
       
       const results = await Promise.all(promises);
@@ -50,15 +59,34 @@ export default function Home() {
         const popup = window.open(
           data.auth_url,
           `${broker}_auth`,
-          'width=600,height=700,scrollbars=yes,resizable=yes'
+          'width=700,height=800,scrollbars=yes,resizable=yes,location=yes'
         );
         
-        // Listen for popup completion
+        // Listen for postMessage from popup (for successful auth)
+        const messageListener = (event: MessageEvent) => {
+          if (event.data.type === `${broker.toUpperCase()}_AUTH_SUCCESS`) {
+            console.log(`${broker} authentication successful!`);
+            popup?.close();
+            setAuthenticating(null);
+            fetchBrokerStatuses();
+            window.removeEventListener('message', messageListener);
+          } else if (event.data.type === `${broker.toUpperCase()}_AUTH_ERROR`) {
+            console.error(`${broker} authentication failed:`, event.data.error);
+            popup?.close();
+            setAuthenticating(null);
+            window.removeEventListener('message', messageListener);
+          }
+        };
+        
+        window.addEventListener('message', messageListener);
+        
+        // Also listen for popup closure
         const checkClosed = setInterval(() => {
           if (popup?.closed) {
             clearInterval(checkClosed);
             setAuthenticating(null);
-            // Refresh statuses after authentication
+            window.removeEventListener('message', messageListener);
+            // Refresh statuses after authentication attempt
             setTimeout(fetchBrokerStatuses, 1000);
           }
         }, 1000);
@@ -69,6 +97,7 @@ export default function Home() {
             popup.close();
             clearInterval(checkClosed);
             setAuthenticating(null);
+            window.removeEventListener('message', messageListener);
           }
         }, 300000);
       }
@@ -144,7 +173,7 @@ export default function Home() {
                   </div>
                 </div>
                 
-                {status.requires_login && (
+                {status.requires_login ? (
                   <button
                     onClick={() => authenticateBroker(broker)}
                     disabled={authenticating === broker}
@@ -159,13 +188,25 @@ export default function Home() {
                       `Connect to ${broker.charAt(0).toUpperCase() + broker.slice(1)}`
                     )}
                   </button>
-                )}
-                
-                {status.status === 'authenticated' && (
-                  <div className="text-center text-green-600 font-medium">
-                    ✅ Ready for Trading
+                ) : status.status === 'authenticated' ? (
+                  <div className="text-center">
+                    <div className="text-green-600 font-medium mb-2">
+                      ✅ Ready for Trading
+                    </div>
+                    <button
+                      onClick={() => authenticateBroker(broker)}
+                      disabled={authenticating === broker}
+                      className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm"
+                    >
+                      🔄 Re-authenticate
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-center text-gray-500">
+                    Configuration Needed
                   </div>
                 )}
+                
               </div>
             ))}
           </div>
