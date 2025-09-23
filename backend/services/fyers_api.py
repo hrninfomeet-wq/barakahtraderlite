@@ -51,15 +51,17 @@ class FyersAPIService:
         """Exchange authorization code for access token"""
         try:
             async with httpx.AsyncClient() as client:
-                # Fyers token exchange endpoint - correct V3 API
+                # Fyers token exchange endpoint - APIv3 auth but v2 validate endpoint!
                 response = await client.post(
-                    "https://api-t1.fyers.in/api/v3/validate-authcode",
-                    data={
-                        'client_id': self.api_key,
-                        'client_secret': self.api_secret,
-                        'code': auth_code,
-                        'redirect_uri': self.redirect_uri,
+                    "https://api.fyers.in/api/v2/validate-authcode",
+                    json={
                         'grant_type': 'authorization_code',
+                        'client_id': self.api_key,
+                        'secret_key': self.api_secret,
+                        'auth_code': auth_code
+                    },
+                    headers={
+                        'Content-Type': 'application/json'
                     },
                     timeout=30.0
                 )
