@@ -37,16 +37,13 @@ class FyersAPIService:
         if not self.api_key:
             raise ValueError("Fyers API key not configured")
             
-        # Fyers OAuth URL construction - using public login page directly
-        # Since API v2 is deprecated and v3 requires SDK, use the web login flow
-        auth_url = f"https://api-t2.fyers.in/vagator/v2/" \
-                  f"?app_id={self.api_key}&" \
+        # Fyers OAuth URL construction - back to working API v2 endpoint
+        # Use the basic OAuth2 flow that still works
+        auth_url = f"https://api.fyers.in/api/v2/generate-authcode?" \
+                  f"client_id={self.api_key}&" \
                   f"redirect_uri={self.redirect_uri}&" \
                   f"response_type=code&" \
-                  f"state=fyers_auth&" \
-                  f"display=page&" \
-                  f"scope=&" \
-                  f"auth_type="
+                  f"state=fyers_auth"
         
         return auth_url
     
@@ -54,9 +51,9 @@ class FyersAPIService:
         """Exchange authorization code for access token"""
         try:
             async with httpx.AsyncClient() as client:
-                # Fyers token exchange endpoint - using V3 validate endpoint
+                # Fyers token exchange endpoint - back to V2 API
                 response = await client.post(
-                    "https://api-t2.fyers.in/vagator/v2/validate-authcode",
+                    "https://api.fyers.in/api/v2/generate-accesstoken",
                     data={
                         'client_id': self.api_key,
                         'client_secret': self.api_secret,

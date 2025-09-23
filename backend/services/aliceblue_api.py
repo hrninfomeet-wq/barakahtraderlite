@@ -18,7 +18,7 @@ class AliceBlueAPIService:
         self.user_id = os.getenv('ALICEBLUE_USER_ID') or 'AB104570'
         self.app_code = os.getenv('ALICEBLUE_APP_CODE')
         self.api_secret = os.getenv('ALICEBLUE_API_SECRET')
-        self.base_url = os.getenv('ALICEBLUE_API_BASE_URL', 'https://ant.aliceblueonline.com/api/v2')
+        self.base_url = os.getenv('ALICEBLUE_API_BASE_URL', 'https://ant.aliceblueonline.com/open-api/od-rest/v1')
         # Use Replit domain for OAuth redirect
         replit_domain = os.getenv('REPLIT_DEV_DOMAIN') or 'localhost:8000'
         self.redirect_uri = f'https://{replit_domain}/api/v1/auth/aliceblue/callback'
@@ -47,13 +47,13 @@ class AliceBlueAPIService:
             if not self.user_id:
                 return {"error": "AliceBlue User ID not configured"}
             
-            # Update base URL to match their current API v2
+            # Use the correct API base URL from official documentation
             api_base = self.base_url
             
             async with httpx.AsyncClient() as client:
-                # Step 1: Get encryption key
+                # Step 1: Get encryption key using correct endpoint
                 enc_response = await client.post(
-                    f"{api_base}/customer/getEncryptionKey",
+                    f"{api_base}/vendor/getEncryptionKey",
                     json={"userId": self.user_id},
                     timeout=30.0
                 )
@@ -72,9 +72,9 @@ class AliceBlueAPIService:
                 combined_string = f"{self.user_id}{api_key}{encryption_key}"
                 checksum = hashlib.sha256(combined_string.encode()).hexdigest()
                 
-                # Step 3: Get session ID
+                # Step 3: Get session ID using correct endpoint
                 auth_response = await client.post(
-                    f"{api_base}/customer/getUserSID",
+                    f"{api_base}/vendor/getUserSID",
                     json={
                         "userId": self.user_id,
                         "userData": checksum
