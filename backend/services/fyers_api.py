@@ -58,7 +58,7 @@ class FyersAPIService:
                         'grant_type': 'authorization_code',
                         'client_id': self.api_key,
                         'secret_key': self.api_secret,
-                        'auth_code': auth_code
+                        'code': auth_code
                     },
                     headers={
                         'Content-Type': 'application/json'
