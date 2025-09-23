@@ -37,8 +37,8 @@ class FyersAPIService:
         if not self.api_key:
             raise ValueError("Fyers API key not configured")
             
-        # Fyers OAuth URL construction - using proper V3 API endpoints
-        auth_url = f"https://api-t1.fyers.in/api/v3/generate-authcode?" \
+        # Fyers OAuth URL construction - correct V2 API for authorization  
+        auth_url = f"https://api.fyers.in/api/v2/generate-authcode?" \
                   f"client_id={self.api_key}&" \
                   f"redirect_uri={self.redirect_uri}&" \
                   f"response_type=code&" \
@@ -50,9 +50,9 @@ class FyersAPIService:
         """Exchange authorization code for access token"""
         try:
             async with httpx.AsyncClient() as client:
-                # Fyers token exchange endpoint - V3 API
+                # Fyers token exchange endpoint - correct V2 API
                 response = await client.post(
-                    "https://api-t1.fyers.in/api/v3/generate-accesstoken",
+                    "https://api.fyers.in/api/v2/generate-accesstoken",
                     data={
                         'client_id': self.api_key,
                         'client_secret': self.api_secret,

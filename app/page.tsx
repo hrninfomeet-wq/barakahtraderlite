@@ -50,7 +50,40 @@ export default function Home() {
 
   const authenticateBroker = async (broker: string) => {
     setAuthenticating(broker);
+    
     try {
+      // AliceBlue uses API key authentication, not OAuth
+      if (broker === 'aliceblue') {
+        const apiKey = prompt('Enter your AliceBlue API Key:');
+        if (!apiKey) {
+          setAuthenticating(null);
+          return;
+        }
+        
+        // Authenticate with API key
+        const response = await fetch(`/api/v1/auth/${broker}/api-key`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ api_key: apiKey })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          console.log('AliceBlue authentication successful');
+          setTimeout(fetchBrokerStatuses, 1000);
+        } else {
+          console.error('AliceBlue authentication failed:', data.detail);
+          alert(`Authentication failed: ${data.detail}`);
+        }
+        
+        setAuthenticating(null);
+        return;
+      }
+      
+      // OAuth flow for other brokers
       const response = await fetch(`/api/v1/auth/${broker}/login`);
       const data = await response.json();
       
