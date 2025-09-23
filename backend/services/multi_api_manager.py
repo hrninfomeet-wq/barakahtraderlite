@@ -24,6 +24,14 @@ from models.trading import (
 from services.paper_trading import paper_trading_engine
 
 
+class MockAuditLogger:
+    """Mock audit logger for when audit logging is not configured"""
+    
+    async def log_api_usage(self, **kwargs):
+        """Mock log API usage"""
+        pass
+
+
 class APIOperationError(Exception):
     """Raised when all APIs fail for an operation."""
     pass
@@ -32,7 +40,7 @@ class APIOperationError(Exception):
 class EnhancedRateLimiter:
     """Enhanced rate limiting with predictive analytics and real-time tracking"""
 
-    def __init__(self, requests_per_second: int, requests_per_minute: int = None, requests_per_hour: int = None):
+    def __init__(self, requests_per_second: int, requests_per_minute: Optional[int] = None, requests_per_hour: Optional[int] = None):
         self.requests_per_second = requests_per_second
         self.requests_per_minute = requests_per_minute or requests_per_second * 60
         self.requests_per_hour = requests_per_hour or self.requests_per_minute * 60
@@ -572,7 +580,9 @@ class IntelligentLoadBalancer:
             api_scores[api_name] = score
 
         # Select API with highest score
-        best_api = max(api_scores, key=api_scores.get)
+        if not api_scores:
+            raise Exception("No API scores calculated")
+        best_api = max(api_scores, key=lambda k: api_scores[k])
 
         # Record routing decision
         self.routing_history.append({
@@ -796,7 +806,7 @@ class MultiAPIManager:
 
         logger.info(f"Initialized {len(self.apis)} APIs: {list(self.apis.keys())}")
 
-    async def execute_with_fallback(self, operation: str, mode: TradingMode = None, **kwargs) -> Any:
+    async def execute_with_fallback(self, operation: str, mode: Optional[TradingMode] = None, **kwargs) -> Any:
         """Execute operation with intelligent routing and automatic API fallback
 
         Enhanced with mode validation for paper trading safety
@@ -807,6 +817,8 @@ class MultiAPIManager:
             if operation == "place_order":
                 order = kwargs.get('order')
                 user_id = kwargs.get('user_id', 'default')
+                if order is None:
+                    raise ValueError("Order data is required for place_order operation")
                 result = await paper_trading_engine.execute_order(order, user_id)
                 return result
             elif operation in ["get_positions", "get_portfolio"]:
@@ -823,6 +835,8 @@ class MultiAPIManager:
         try:
 
             # Use intelligent load balancer to select best API
+            if not self.load_balancer:
+                raise APIOperationError("Load balancer not initialized")
             api_name = await self.load_balancer.select_best_api(operation)
             api = self.apis[api_name]
 
@@ -838,39 +852,42 @@ class MultiAPIManager:
             response_time = (time.time() - start_time) * 1000  # Convert to ms
 
             # Update performance metrics
-            self.load_balancer.update_performance_metrics(
-                api_name, operation, response_time, True
-            )
+            if self.load_balancer:
+                self.load_balancer.update_performance_metrics(
+                    api_name, operation, response_time, True
+                )
 
             # Log successful operation
-            await self.audit_logger.log_api_usage(
-                api_provider=api_name,
-                endpoint=operation,
-                request_type="POST",
-                status_code=200,
-                response_time_ms=response_time
-            )
+            if self.audit_logger:
+                await self.audit_logger.log_api_usage(
+                    api_provider=api_name,
+                    endpoint=operation,
+                    request_type="POST",
+                    status_code=200,
+                    response_time_ms=response_time
+                )
 
             logger.info(f"Operation {operation} successful via {api_name} in {response_time:.2f}ms")
             return result
 
         except Exception as e:
             response_time = (time.time() - start_time) * 1000 if 'start_time' in locals() else 0
-            api_name = api_name if 'api_name' in locals() else None
+            api_name = api_name if 'api_name' in locals() else "unknown"
 
             # Update performance metrics for failure
-            if api_name:
+            if api_name and self.load_balancer:
                 self.load_balancer.update_performance_metrics(
                     api_name, operation, response_time, False
                 )
 
-                await self.audit_logger.log_api_usage(
-                    api_provider=api_name,
-                    endpoint=operation,
-                    request_type="POST",
-                    status_code=500,
-                    response_time_ms=response_time
-                )
+                if self.audit_logger:
+                    await self.audit_logger.log_api_usage(
+                        api_provider=api_name,
+                        endpoint=operation,
+                        request_type="POST",
+                        status_code=500,
+                        response_time_ms=response_time
+                    )
 
             logger.error(f"Operation {operation} failed: {e}")
 
@@ -921,9 +938,10 @@ class MultiAPIManager:
                     fallback_response_time = (time.time() - fallback_start_time) * 1000 if 'fallback_start_time' in locals() else 0
 
                     # Update performance metrics for failure
-                    self.load_balancer.update_performance_metrics(
-                        fallback_api_name, operation, fallback_response_time, False
-                    )
+                    if self.load_balancer:
+                        self.load_balancer.update_performance_metrics(
+                            fallback_api_name, operation, fallback_response_time, False
+                        )
 
                     await self.audit_logger.log_api_usage(
                         api_provider=fallback_api_name,
@@ -959,6 +977,8 @@ class MultiAPIManager:
 
     async def get_health_status(self) -> Dict[str, Dict]:
         """Get health status for all APIs"""
+        if not self.health_monitor:
+            return {}
         return self.health_monitor.health_statuses
 
     async def get_rate_limit_analytics(self) -> Dict[str, Any]:
@@ -975,6 +995,8 @@ class MultiAPIManager:
 
     async def get_load_balancing_insights(self) -> Dict[str, Any]:
         """Get load balancing insights and performance metrics"""
+        if not self.load_balancer:
+            return {}
         return self.load_balancer.get_load_balancing_analytics()
 
     async def get_optimization_suggestions(self) -> List[Dict[str, Any]]:
