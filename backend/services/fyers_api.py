@@ -118,22 +118,38 @@ class FyersAPIService:
                     logger.info(f"Fyers API success: received data for {len(fyers_symbols)} symbols")
                     
                     # Transform Fyers response to our standard format
+                    # Fyers v3 returns array under 'd' key: [{'symbol': 'NSE:RELIANCE-EQ', 'v': {...}}, ...]
                     result = {}
-                    quotes = data.get('d', {})
+                    quotes_array = data.get('d', [])
                     
-                    for i, symbol in enumerate(symbols):
-                        fyers_symbol = fyers_symbols[i]
-                        if fyers_symbol in quotes:
-                            quote_data = quotes[fyers_symbol]['v']
+                    # Create symbol mapping for quick lookup
+                    symbol_to_original = {fyers_symbols[i]: symbols[i] for i in range(len(symbols))}
+                    
+                    for quote_item in quotes_array:
+                        if isinstance(quote_item, dict) and 'symbol' in quote_item and 'v' in quote_item:
+                            fyers_symbol = quote_item['symbol']
+                            quote_data = quote_item['v']
+                            original_symbol = symbol_to_original.get(fyers_symbol)
+                            
+                            if original_symbol:
+                                result[original_symbol.upper()] = {
+                                    'last_price': float(quote_data.get('lp', 0)),
+                                    'timestamp': datetime.now().isoformat(),
+                                    'change': float(quote_data.get('ch', 0)),
+                                    'change_percent': float(quote_data.get('chp', 0)),
+                                    'volume': int(quote_data.get('volume', 0)),
+                                    'high': float(quote_data.get('h', 0)),
+                                    'low': float(quote_data.get('l', 0)),
+                                    'open': float(quote_data.get('o', 0)),
+                                }
+                    
+                    # Ensure we have data for all requested symbols
+                    for symbol in symbols:
+                        if symbol.upper() not in result:
                             result[symbol.upper()] = {
-                                'last_price': float(quote_data.get('lp', 0)),
-                                'timestamp': datetime.now().isoformat(),
-                                'change': float(quote_data.get('ch', 0)),
-                                'change_percent': float(quote_data.get('chp', 0)),
-                                'volume': int(quote_data.get('volume', 0)),
-                                'high': float(quote_data.get('h', 0)),
-                                'low': float(quote_data.get('l', 0)),
-                                'open': float(quote_data.get('o', 0)),
+                                'last_price': None,
+                                'error': 'No data received',
+                                'timestamp': datetime.now().isoformat()
                             }
                     
                     return {"success": True, "data": result, "source": "fyers"}

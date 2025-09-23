@@ -313,85 +313,172 @@ class TradingAPIInterface(ABC):
 
 
 class FlattradeAPI(TradingAPIInterface):
-    """FLATTRADE API Implementation"""
+    """FLATTRADE API Implementation using FlattradeAPIService"""
+    
+    def __init__(self, config: APIConfig):
+        super().__init__(config)
+        # Import the service here to avoid circular imports
+        from services.flattrade_api import flattrade_service
+        self.service = flattrade_service
 
     async def authenticate(self, credentials: Dict) -> bool:
         """Authenticate with FLATTRADE API"""
         try:
-            # FLATTRADE authentication implementation
-            # This would contain actual API calls to FLATTRADE
-            logger.info("FLATTRADE authentication successful")
-            self.auth_token = "flattrade_token_placeholder"
-            self.token_expiry = datetime.now() + timedelta(hours=24)
-            return True
+            if self.service.has_credentials():
+                self.auth_token = self.service.access_token
+                self.token_expiry = datetime.now() + timedelta(hours=24)
+                logger.info("FLATTRADE authentication successful with existing token")
+                return True
+            else:
+                logger.warning("FLATTRADE authentication failed: missing credentials")
+                return False
         except Exception as e:
             logger.error(f"FLATTRADE authentication failed: {e}")
             return False
 
     async def place_order(self, order_data: Dict) -> Dict:
         """Place order via FLATTRADE"""
-        # Implementation placeholder
-        return {"order_id": "FL_12345", "status": "placed"}
+        # This would be implemented when order placement is needed
+        # For now, return placeholder since we're in paper trading mode
+        return {"order_id": "FL_12345", "status": "placed", "provider": "flattrade"}
 
     async def get_positions(self) -> List[Dict]:
         """Get positions from FLATTRADE"""
-        # Implementation placeholder
+        # This would fetch real positions from Flattrade API
+        # For now, return empty list since we're focusing on market data
         return []
 
     async def get_portfolio(self) -> Dict:
         """Get portfolio from FLATTRADE"""
-        # Implementation placeholder
-        return {"total_value": 100000, "cash": 50000}
+        # This would fetch real portfolio from Flattrade API
+        # For now, return basic portfolio data
+        if self.service.has_credentials():
+            return {"total_value": 100000, "cash": 50000, "provider": "flattrade", "status": "connected"}
+        else:
+            return {"error": "Not authenticated", "provider": "flattrade"}
 
     async def get_market_data(self, symbols: List[str]) -> Dict[str, Dict]:
-        """Get market data from FLATTRADE"""
-        # Implementation placeholder
-        return {symbol: {"price": 100.0} for symbol in symbols}
+        """Get market data from FLATTRADE using real API"""
+        try:
+            if not self.service.has_credentials():
+                logger.warning("FLATTRADE market data: missing credentials, returning demo data")
+                return {symbol: {"price": 100.0, "source": "demo"} for symbol in symbols}
+            
+            # Use real Flattrade API service
+            result = await self.service.get_market_data(symbols)
+            
+            if result.get('success'):
+                # Transform to expected format
+                transformed_data = {}
+                for symbol, data in result['data'].items():
+                    transformed_data[symbol] = {
+                        "price": data.get('last_price', 0),
+                        "change": data.get('change', 0),
+                        "change_percent": data.get('change_percent', 0),
+                        "volume": data.get('volume', 0),
+                        "high": data.get('high', 0),
+                        "low": data.get('low', 0),
+                        "open": data.get('open', 0),
+                        "timestamp": data.get('timestamp'),
+                        "source": "flattrade"
+                    }
+                return transformed_data
+            else:
+                logger.error(f"FLATTRADE market data error: {result.get('error')}")
+                return {symbol: {"price": None, "error": result.get('error'), "source": "flattrade"} for symbol in symbols}
+                
+        except Exception as e:
+            logger.error(f"FLATTRADE market data exception: {e}")
+            return {symbol: {"price": None, "error": str(e), "source": "flattrade"} for symbol in symbols}
 
     async def cancel_order(self, order_id: str) -> bool:
         """Cancel order via FLATTRADE"""
-        # Implementation placeholder
+        # This would be implemented when order cancellation is needed
         return True
 
 
 class FyersAPI(TradingAPIInterface):
-    """FYERS API Implementation"""
+    """FYERS API Implementation using FyersAPIService"""
+    
+    def __init__(self, config: APIConfig):
+        super().__init__(config)
+        # Import the service here to avoid circular imports
+        from services.fyers_api import fyers_service
+        self.service = fyers_service
 
     async def authenticate(self, credentials: Dict) -> bool:
         """Authenticate with FYERS API"""
         try:
-            # FYERS authentication implementation
-            logger.info("FYERS authentication successful")
-            self.auth_token = "fyers_token_placeholder"
-            self.token_expiry = datetime.now() + timedelta(hours=24)
-            return True
+            if self.service.has_credentials():
+                self.auth_token = self.service.access_token
+                self.token_expiry = datetime.now() + timedelta(hours=24)
+                logger.info("FYERS authentication successful with existing token")
+                return True
+            else:
+                logger.warning("FYERS authentication failed: missing access token")
+                return False
         except Exception as e:
             logger.error(f"FYERS authentication failed: {e}")
             return False
 
     async def place_order(self, order_data: Dict) -> Dict:
         """Place order via FYERS"""
-        # Implementation placeholder
-        return {"order_id": "FY_12345", "status": "placed"}
+        # This would be implemented when order placement is needed
+        # For now, return placeholder since we're in paper trading mode
+        return {"order_id": "FY_12345", "status": "placed", "provider": "fyers"}
 
     async def get_positions(self) -> List[Dict]:
         """Get positions from FYERS"""
-        # Implementation placeholder
+        # This would fetch real positions from Fyers API
+        # For now, return empty list since we're focusing on market data
         return []
 
     async def get_portfolio(self) -> Dict:
         """Get portfolio from FYERS"""
-        # Implementation placeholder
-        return {"total_value": 100000, "cash": 50000}
+        # This would fetch real portfolio from Fyers API
+        # For now, return basic portfolio data
+        if self.service.has_credentials():
+            return {"total_value": 100000, "cash": 50000, "provider": "fyers", "status": "connected"}
+        else:
+            return {"error": "Not authenticated - missing access token", "provider": "fyers"}
 
     async def get_market_data(self, symbols: List[str]) -> Dict[str, Dict]:
-        """Get market data from FYERS"""
-        # Implementation placeholder
-        return {symbol: {"price": 100.0} for symbol in symbols}
+        """Get market data from FYERS using real API"""
+        try:
+            if not self.service.has_credentials():
+                logger.warning("FYERS market data: missing credentials, returning demo data")
+                return {symbol: {"price": 100.0, "source": "demo", "provider": "fyers"} for symbol in symbols}
+            
+            # Use real Fyers API service
+            result = await self.service.get_market_data(symbols)
+            
+            if result.get('success'):
+                # Transform to expected format
+                transformed_data = {}
+                for symbol, data in result['data'].items():
+                    transformed_data[symbol] = {
+                        "price": data.get('last_price', 0),
+                        "change": data.get('change', 0),
+                        "change_percent": data.get('change_percent', 0),
+                        "volume": data.get('volume', 0),
+                        "high": data.get('high', 0),
+                        "low": data.get('low', 0),
+                        "open": data.get('open', 0),
+                        "timestamp": data.get('timestamp'),
+                        "source": "fyers"
+                    }
+                return transformed_data
+            else:
+                logger.error(f"FYERS market data error: {result.get('error')}")
+                return {symbol: {"price": None, "error": result.get('error'), "source": "fyers"} for symbol in symbols}
+                
+        except Exception as e:
+            logger.error(f"FYERS market data exception: {e}")
+            return {symbol: {"price": None, "error": str(e), "source": "fyers"} for symbol in symbols}
 
     async def cancel_order(self, order_id: str) -> bool:
         """Cancel order via FYERS"""
-        # Implementation placeholder
+        # This would be implemented when order cancellation is needed
         return True
 
 
@@ -496,43 +583,87 @@ class UpstoxAPI(TradingAPIInterface):
 
 
 class AliceBlueAPI(TradingAPIInterface):
-    """Alice Blue API Implementation"""
+    """Alice Blue API Implementation using AliceBlueAPIService"""
+    
+    def __init__(self, config: APIConfig):
+        super().__init__(config)
+        # Import the service here to avoid circular imports
+        from services.aliceblue_api import aliceblue_service
+        self.service = aliceblue_service
 
     async def authenticate(self, credentials: Dict) -> bool:
         """Authenticate with Alice Blue API"""
         try:
-            # Alice Blue authentication implementation
-            logger.info("Alice Blue authentication successful")
-            self.auth_token = "alice_blue_token_placeholder"
-            self.token_expiry = datetime.now() + timedelta(hours=24)
-            return True
+            if self.service.has_credentials():
+                self.auth_token = self.service.access_token
+                self.token_expiry = datetime.now() + timedelta(hours=24)
+                logger.info("Alice Blue authentication successful with existing token")
+                return True
+            else:
+                logger.warning("Alice Blue authentication failed: missing access token")
+                return False
         except Exception as e:
             logger.error(f"Alice Blue authentication failed: {e}")
             return False
 
     async def place_order(self, order_data: Dict) -> Dict:
         """Place order via Alice Blue"""
-        # Implementation placeholder
-        return {"order_id": "AB_12345", "status": "placed"}
+        # This would be implemented when order placement is needed
+        # For now, return placeholder since we're in paper trading mode
+        return {"order_id": "AB_12345", "status": "placed", "provider": "aliceblue"}
 
     async def get_positions(self) -> List[Dict]:
         """Get positions from Alice Blue"""
-        # Implementation placeholder
+        # This would fetch real positions from Alice Blue API
+        # For now, return empty list since we're focusing on market data
         return []
 
     async def get_portfolio(self) -> Dict:
         """Get portfolio from Alice Blue"""
-        # Implementation placeholder
-        return {"total_value": 100000, "cash": 50000}
+        # This would fetch real portfolio from Alice Blue API
+        # For now, return basic portfolio data
+        if self.service.has_credentials():
+            return {"total_value": 100000, "cash": 50000, "provider": "aliceblue", "status": "connected"}
+        else:
+            return {"error": "Not authenticated - missing access token", "provider": "aliceblue"}
 
     async def get_market_data(self, symbols: List[str]) -> Dict[str, Dict]:
-        """Get market data from Alice Blue"""
-        # Implementation placeholder
-        return {symbol: {"price": 100.0} for symbol in symbols}
+        """Get market data from Alice Blue using real API"""
+        try:
+            if not self.service.has_credentials():
+                logger.warning("Alice Blue market data: missing credentials, returning demo data")
+                return {symbol: {"price": 100.0, "source": "demo", "provider": "aliceblue"} for symbol in symbols}
+            
+            # Use real Alice Blue API service
+            result = await self.service.get_market_data(symbols)
+            
+            if result.get('success'):
+                # Transform to expected format
+                transformed_data = {}
+                for symbol, data in result['data'].items():
+                    transformed_data[symbol] = {
+                        "price": data.get('last_price', 0),
+                        "change": data.get('change', 0),
+                        "change_percent": data.get('change_percent', 0),
+                        "volume": data.get('volume', 0),
+                        "high": data.get('high', 0),
+                        "low": data.get('low', 0),
+                        "open": data.get('open', 0),
+                        "timestamp": data.get('timestamp'),
+                        "source": "aliceblue"
+                    }
+                return transformed_data
+            else:
+                logger.error(f"Alice Blue market data error: {result.get('error')}")
+                return {symbol: {"price": None, "error": result.get('error'), "source": "aliceblue"} for symbol in symbols}
+                
+        except Exception as e:
+            logger.error(f"Alice Blue market data exception: {e}")
+            return {symbol: {"price": None, "error": str(e), "source": "aliceblue"} for symbol in symbols}
 
     async def cancel_order(self, order_id: str) -> bool:
         """Cancel order via Alice Blue"""
-        # Implementation placeholder
+        # This would be implemented when order cancellation is needed
         return True
 
 
