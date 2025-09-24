@@ -34,31 +34,28 @@ class BrokerManager:
         if broker_id not in self.brokers:
             raise ValueError(f"Unknown broker: {broker_id}")
         
-        # AliceBlue uses API key authentication, not OAuth
-        if broker_id == 'aliceblue':
-            raise ValueError("AliceBlue uses API key authentication. Please use authenticate_with_api_key endpoint instead.")
-        
         service = self.brokers[broker_id]
         if not hasattr(service, 'get_auth_url'):
             raise ValueError(f"Broker {broker_id} does not support OAuth authentication")
         
         return service.get_auth_url()
     
-    async def exchange_code_for_token(self, broker_id: str, auth_code: str) -> Dict[str, Any]:
+    async def exchange_code_for_token(self, broker_id: str, auth_code: str, user_id: Optional[str] = None) -> Dict[str, Any]:
         """Exchange authorization code for access token"""
         if broker_id not in self.brokers:
             return {"error": f"Unknown broker: {broker_id}"}
-        
-        # AliceBlue uses API key authentication, not OAuth
-        if broker_id == 'aliceblue':
-            return {"error": "AliceBlue uses API key authentication. Please use authenticate_with_api_key endpoint instead."}
         
         service = self.brokers[broker_id]
         if not hasattr(service, 'exchange_code_for_token'):
             return {"error": f"Broker {broker_id} does not support token exchange"}
         
         try:
-            result = await service.exchange_code_for_token(auth_code)
+            # AliceBlue requires user_id parameter for token exchange
+            if broker_id == 'aliceblue':
+                result = await service.exchange_code_for_token(auth_code, user_id)
+            else:
+                result = await service.exchange_code_for_token(auth_code)
+                
             if result.get('error'):
                 return result
             else:
@@ -74,8 +71,8 @@ class BrokerManager:
         if broker_id not in self.brokers:
             return {"error": f"Unknown broker: {broker_id}"}
         
-        # Currently only AliceBlue uses API key authentication
-        if broker_id != 'aliceblue':
+        # Legacy method - most brokers now use OAuth
+        if broker_id in ['aliceblue', 'fyers', 'upstox', 'flattrade']:
             return {"error": f"Broker {broker_id} uses OAuth authentication, not API key"}
         
         service = self.brokers[broker_id]

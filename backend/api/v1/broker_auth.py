@@ -18,6 +18,10 @@ class AuthCallbackRequest(BaseModel):
     code: str
     broker: str
 
+class AliceBlueCallbackRequest(BaseModel):
+    authCode: str
+    userId: str = None
+
 @router.get("/{broker_id}/status")
 async def get_broker_status(broker_id: str) -> Dict[str, Any]:
     """Get authentication status for a specific broker"""
@@ -168,6 +172,60 @@ async def broker_callback(broker_id: str, code: Optional[str] = None, error: Opt
         </html>
         """
         return Response(content=html_content, media_type="text/html")
+
+@router.post("/{broker_id}/logout")
+async def broker_logout(broker_id: str) -> Dict[str, Any]:
+    """Clear stored tokens and logout from broker"""
+    try:
+        if broker_id not in ['upstox', 'flattrade', 'fyers', 'aliceblue']:
+            raise HTTPException(status_code=400, detail=f"Unknown broker: {broker_id}")
+        
+        # Get the service and call logout if available
+        service = broker_manager.brokers.get(broker_id)
+        if service and hasattr(service, 'logout'):
+            result = await service.logout()
+            logger.info(f"{broker_id} logout completed")
+            return result
+        else:
+            # Fallback - just return success
+            logger.info(f"{broker_id} logout completed (no logout method)")
+            return {"success": True, "message": f"{broker_id} logged out successfully"}
+            
+    except Exception as e:
+        logger.error(f"Error during {broker_id} logout: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Logout failed: {str(e)}")
+
+@router.post("/aliceblue/callback")
+async def aliceblue_manual_callback(request: AliceBlueCallbackRequest) -> Dict[str, Any]:
+    """Handle manual AliceBlue OAuth callback with authCode and userId"""
+    try:
+        auth_code = request.authCode
+        user_id = request.userId
+        
+        logger.info(f"AliceBlue manual callback received - authCode present: {bool(auth_code)}, userId: {user_id}")
+        
+        # Exchange code for token using broker manager
+        token_result = await broker_manager.exchange_code_for_token('aliceblue', auth_code, user_id)
+        
+        if token_result.get("error"):
+            logger.error(f"AliceBlue manual token exchange failed: {token_result.get('error')}")
+            return {
+                "success": False,
+                "error": token_result.get("error"),
+                "broker": "aliceblue"
+            }
+        
+        logger.info("AliceBlue manual authentication successful")
+        return {
+            "success": True,
+            "message": "AliceBlue authenticated successfully",
+            "broker": "aliceblue",
+            "token_data": token_result.get('token_data', {})
+        }
+        
+    except Exception as e:
+        logger.error(f"AliceBlue manual callback error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Authentication failed: {str(e)}")
 
 @router.post("/exchange-code")
 async def exchange_auth_code(request: AuthCallbackRequest) -> Dict[str, Any]:
