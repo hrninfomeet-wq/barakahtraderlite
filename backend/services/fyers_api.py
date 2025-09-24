@@ -22,7 +22,7 @@ class FyersAPIService:
         self.api_key = self.client_id  # Same as client_id for User App
         self.api_secret = os.getenv('FYERS_API_SECRET')
         self.access_token = None
-        self.base_url = 'https://api-t1.fyers.in'
+        self.base_url = 'https://api-t1.fyers.in/api/v3'
         # For User App, use the official Fyers redirect URI
         self.redirect_uri = "https://trade.fyers.in/api-login/redirect-uri/index.html"
         self.token_expires_at = None
@@ -289,7 +289,7 @@ class FyersAPIService:
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(
-                    f"{self.base_url}/data/holdings",
+                    f"{self.base_url}/holdings",
                     headers={
                         'Authorization': f'{self.client_id}:{self.access_token}',
                     },
@@ -317,7 +317,7 @@ class FyersAPIService:
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(
-                    f"{self.base_url}/data/profile",
+                    f"{self.base_url}/profile",
                     headers={
                         'Authorization': f'{self.client_id}:{self.access_token}',
                     },
@@ -336,19 +336,16 @@ class FyersAPIService:
             logger.error(f"Fyers profile API error: {str(e)}")
             return {"error": "Profile API request failed", "exception": str(e)}
 
-    async def get_watchlist(self, list_id: str = "1") -> Dict[str, Any]:
-        """Fetch user's watchlist from Fyers API"""
+    async def get_funds(self) -> Dict[str, Any]:
+        """Fetch user's funds and margin information from Fyers API"""
         if not self.has_credentials():
-            logger.warning("Fyers API credentials not available for watchlist")
+            logger.warning("Fyers API credentials not available for funds")
             return {"error": "No valid credentials"}
         
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(
-                    f"{self.base_url}/data/watchlist",
-                    params={
-                        'list_id': list_id
-                    },
+                    f"{self.base_url}/funds",
                     headers={
                         'Authorization': f'{self.client_id}:{self.access_token}',
                     },
@@ -357,15 +354,15 @@ class FyersAPIService:
                 
                 if response.status_code == 200:
                     data = response.json()
-                    logger.info(f"Fyers watchlist API success: {data.get('s', 'unknown')}")
-                    return {"success": True, "data": data, "source": "fyers", "list_id": list_id}
+                    logger.info(f"Fyers funds API success: {data.get('s', 'unknown')}")
+                    return {"success": True, "data": data, "source": "fyers"}
                 else:
-                    logger.error(f"Fyers watchlist API error: {response.status_code} - {response.text}")
-                    return {"error": "Watchlist API request failed", "status_code": response.status_code}
+                    logger.error(f"Fyers funds API error: {response.status_code} - {response.text}")
+                    return {"error": "Funds API request failed", "status_code": response.status_code}
                     
         except Exception as e:
-            logger.error(f"Fyers watchlist API error: {str(e)}")
-            return {"error": "Watchlist API request failed", "exception": str(e)}
+            logger.error(f"Fyers funds API error: {str(e)}")
+            return {"error": "Funds API request failed", "exception": str(e)}
 
     def disconnect(self):
         """Clear stored credentials"""

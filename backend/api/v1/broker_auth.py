@@ -320,19 +320,19 @@ async def get_fyers_profile():
         logger.error(f"Failed to fetch Fyers profile: {str(e)}")
         return {"success": False, "error": str(e)}
 
-@router.get("/fyers/watchlist")
-async def get_fyers_watchlist(list_id: str = "1"):
-    """Get user's watchlist from Fyers API"""
+@router.get("/fyers/funds")
+async def get_fyers_funds():
+    """Get user's funds and margin information from Fyers API"""
     try:
         fyers_service = broker_manager.brokers.get('fyers')
         if not fyers_service:
             return {"success": False, "error": "Fyers service not available"}
         
-        result = await fyers_service.get_watchlist(list_id)
-        logger.info(f"Fyers watchlist API call: {result.get('success', 'unknown')}")
+        result = await fyers_service.get_funds()
+        logger.info(f"Fyers funds API call: {result.get('success', 'unknown')}")
         return result
     except Exception as e:
-        logger.error(f"Failed to fetch Fyers watchlist: {str(e)}")
+        logger.error(f"Failed to fetch Fyers funds: {str(e)}")
         return {"success": False, "error": str(e)}
 
 @router.get("/health")
