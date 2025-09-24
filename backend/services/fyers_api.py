@@ -37,42 +37,53 @@ class FyersAPIService:
         logger.info(f"FyersAPIService initialized - API Key: {has_key}, Token: {has_token}")
     
     def _load_stored_token(self):
-        """Load stored access token with expiry check"""
+        """Load stored access token with expiry check from secure CredentialVault"""
         try:
-            # Load from environment variable with expiry info
-            self.access_token = os.getenv('FYERS_ACCESS_TOKEN')
-            expires_str = os.getenv('FYERS_TOKEN_EXPIRES_AT')
+            # Retrieve token from secure CredentialVault
+            import asyncio
+            from models.trading import APIProvider
             
-            if self.access_token and expires_str:
-                self.token_expires_at = datetime.fromisoformat(expires_str)
+            # Run async token retrieval
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                token_data = loop.run_until_complete(
+                    self.credential_vault.retrieve_auth_token(APIProvider.FYERS)
+                )
+            finally:
+                loop.close()
+            
+            if token_data:
+                self.access_token = token_data.get('access_token')
+                expires_str = token_data.get('expires_at')
                 
-                # Check if token is still valid (with 30min buffer)
-                if datetime.now() < self.token_expires_at - timedelta(minutes=30):
-                    logger.info("Fyers token loaded from environment - still valid")
-                    return
+                if expires_str:
+                    self.token_expires_at = datetime.fromisoformat(expires_str)
                 else:
-                    logger.warning("Stored Fyers token has expired, clearing...")
-                    os.environ.pop('FYERS_ACCESS_TOKEN', None)
-                    os.environ.pop('FYERS_TOKEN_EXPIRES_AT', None)
-                    self.access_token = None
-                    self.token_expires_at = None
-                    return
-            elif self.access_token:
-                logger.info("Fyers token loaded from environment (no expiry info)")
-                # Set default expiry (Fyers tokens typically last 8 hours)
-                self.token_expires_at = datetime.now() + timedelta(hours=8)
+                    # Fallback to stored_at + 8 hours for Fyers tokens
+                    stored_at_str = token_data.get('stored_at')
+                    if stored_at_str:
+                        stored_at = datetime.fromisoformat(stored_at_str)
+                        self.token_expires_at = stored_at + timedelta(hours=8)
+                    else:
+                        self.token_expires_at = datetime.now() + timedelta(hours=8)
+                
+                logger.info("Fyers token loaded from secure CredentialVault")
             else:
-                logger.debug("No Fyers token found in environment")
+                logger.debug("No Fyers token found in CredentialVault")
+                self.access_token = None
                 self.token_expires_at = None
                 
         except Exception as e:
-            logger.warning(f"Failed to load stored Fyers token: {e}")
+            logger.warning(f"Failed to load stored Fyers token from CredentialVault: {e}")
             self.access_token = None
             self.token_expires_at = None
     
     async def _store_token(self, token_data: Dict[str, Any]):
-        """Store access token with expiry information"""
+        """Store access token with expiry information in secure CredentialVault"""
         try:
+            from models.trading import APIProvider
+            
             if 'access_token' in token_data:
                 self.access_token = token_data['access_token']
                 
@@ -80,13 +91,23 @@ class FyersAPIService:
                 expires_at = datetime.now() + timedelta(hours=8)
                 self.token_expires_at = expires_at
                 
-                # Store in environment with expiry info
-                os.environ['FYERS_ACCESS_TOKEN'] = token_data['access_token']
-                os.environ['FYERS_TOKEN_EXPIRES_AT'] = expires_at.isoformat()
+                # Prepare token data for secure storage
+                secure_token_data = {
+                    'access_token': self.access_token,
+                    'expires_at': expires_at.isoformat(),
+                    'lifetime_hours': 8,
+                    'token_type': 'fyers_access_token'
+                }
                 
-                logger.info(f"Fyers token stored - expires at {expires_at.strftime('%Y-%m-%d %H:%M:%S')}")
+                # Store in secure CredentialVault
+                await self.credential_vault.store_auth_token(
+                    APIProvider.FYERS, 
+                    secure_token_data
+                )
+                
+                logger.info(f"Fyers token securely stored - expires at {expires_at.strftime('%Y-%m-%d %H:%M:%S')}")
         except Exception as e:
-            logger.error(f"Failed to store Fyers token: {e}")
+            logger.error(f"Failed to store Fyers token in CredentialVault: {e}")
     
     def has_credentials(self) -> bool:
         """Check if we have necessary credentials for API calls"""

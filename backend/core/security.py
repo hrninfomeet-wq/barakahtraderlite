@@ -4,7 +4,7 @@ Handles credential storage, encryption, and authentication
 """
 import json
 # import hashlib  # Unused
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 from cryptography.fernet import Fernet
 import keyring
@@ -180,6 +180,126 @@ class CredentialVault:
                 continue
 
         return stored_providers
+
+    async def store_auth_token(self, provider: APIProvider, token_data: Dict[str, Any]) -> bool:
+        """Securely store authentication token with expiry information"""
+        try:
+            if not self.cipher:
+                await self.initialize()
+
+            # Add metadata to token data
+            token_with_metadata = {
+                **token_data,
+                "stored_at": datetime.now().isoformat(),
+                "provider": provider.value
+            }
+
+            # Encrypt token data
+            token_json = json.dumps(token_with_metadata, default=str)
+            encrypted_token = self.cipher.encrypt(token_json.encode())
+
+            # Store in Windows Credential Manager with 'token_' prefix
+            keyring.set_password(
+                self.service_name,
+                f"token_{provider.value}",
+                encrypted_token.decode()
+            )
+
+            logger.info(f"Stored encrypted auth token for {provider.value}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to store auth token for {provider.value}: {e}")
+            raise SecurityException(f"Token storage failed: {e}")
+
+    async def retrieve_auth_token(self, provider: APIProvider) -> Optional[Dict[str, Any]]:
+        """Securely retrieve authentication token with expiry validation"""
+        try:
+            if not self.cipher:
+                await self.initialize()
+
+            encrypted_token = keyring.get_password(
+                self.service_name,
+                f"token_{provider.value}"
+            )
+
+            if not encrypted_token:
+                logger.debug(f"No auth token found for {provider.value}")
+                return None
+
+            # Decrypt token data
+            decrypted_token = self.cipher.decrypt(encrypted_token.encode())
+            token_data = json.loads(decrypted_token.decode())
+
+            # Check if token has expired
+            if self._is_token_expired(token_data):
+                logger.warning(f"Auth token for {provider.value} has expired")
+                await self.delete_auth_token(provider)  # Clean up expired token
+                return None
+
+            logger.debug(f"Retrieved valid auth token for {provider.value}")
+            return token_data
+
+        except Exception as e:
+            logger.error(f"Failed to retrieve auth token for {provider.value}: {e}")
+            return None
+
+    async def delete_auth_token(self, provider: APIProvider) -> bool:
+        """Delete stored authentication token"""
+        try:
+            keyring.delete_password(self.service_name, f"token_{provider.value}")
+            logger.info(f"Deleted auth token for {provider.value}")
+            return True
+        except Exception as e:
+            logger.debug(f"No auth token to delete for {provider.value}: {e}")
+            return False
+
+    def _is_token_expired(self, token_data: Dict[str, Any]) -> bool:
+        """Check if authentication token has expired"""
+        try:
+            # Check for expires_at field (ISO format)
+            if "expires_at" in token_data:
+                expires_at = datetime.fromisoformat(token_data["expires_at"])
+                # Add 30 minute buffer for safety
+                buffer_time = expires_at - timedelta(minutes=30)
+                return datetime.now() >= buffer_time
+
+            # Check for stored_at + duration (for tokens with known lifetime)
+            if "stored_at" in token_data:
+                stored_at = datetime.fromisoformat(token_data["stored_at"])
+                # Fyers tokens typically last 8 hours
+                token_lifetime_hours = token_data.get("lifetime_hours", 8)
+                expires_at = stored_at + timedelta(hours=token_lifetime_hours)
+                buffer_time = expires_at - timedelta(minutes=30)
+                return datetime.now() >= buffer_time
+
+            # If no expiry info, consider token valid (legacy case)
+            return False
+
+        except Exception as e:
+            logger.error(f"Error checking token expiry: {e}")
+            return True  # Err on side of caution
+
+    async def list_stored_tokens(self) -> Dict[str, Dict[str, Any]]:
+        """List all stored auth tokens with their status"""
+        token_status = {}
+        
+        for provider in APIProvider:
+            try:
+                token_data = await self.retrieve_auth_token(provider)
+                if token_data:
+                    token_status[provider.value] = {
+                        "has_token": True,
+                        "stored_at": token_data.get("stored_at"),
+                        "expires_at": token_data.get("expires_at"),
+                        "is_expired": self._is_token_expired(token_data)
+                    }
+                else:
+                    token_status[provider.value] = {"has_token": False}
+            except Exception:
+                token_status[provider.value] = {"has_token": False, "error": True}
+
+        return token_status
 
 
 class TOTPManager:
