@@ -290,6 +290,51 @@ async def fyers_manual_auth(request: Dict[str, str]) -> Dict[str, Any]:
         logger.error(f"Error in manual Fyers authentication: {str(e)}")
         return {"success": False, "error": f"Authentication failed: {str(e)}"}
 
+@router.get("/fyers/holdings")
+async def get_fyers_holdings():
+    """Get user's holdings from Fyers API"""
+    try:
+        fyers_service = broker_manager.brokers.get('fyers')
+        if not fyers_service:
+            return {"success": False, "error": "Fyers service not available"}
+        
+        result = await fyers_service.get_holdings()
+        logger.info(f"Fyers holdings API call: {result.get('success', 'unknown')}")
+        return result
+    except Exception as e:
+        logger.error(f"Failed to fetch Fyers holdings: {str(e)}")
+        return {"success": False, "error": str(e)}
+
+@router.get("/fyers/profile")
+async def get_fyers_profile():
+    """Get user's account profile from Fyers API"""
+    try:
+        fyers_service = broker_manager.brokers.get('fyers')
+        if not fyers_service:
+            return {"success": False, "error": "Fyers service not available"}
+        
+        result = await fyers_service.get_account_profile()
+        logger.info(f"Fyers profile API call: {result.get('success', 'unknown')}")
+        return result
+    except Exception as e:
+        logger.error(f"Failed to fetch Fyers profile: {str(e)}")
+        return {"success": False, "error": str(e)}
+
+@router.get("/fyers/watchlist")
+async def get_fyers_watchlist(list_id: str = "1"):
+    """Get user's watchlist from Fyers API"""
+    try:
+        fyers_service = broker_manager.brokers.get('fyers')
+        if not fyers_service:
+            return {"success": False, "error": "Fyers service not available"}
+        
+        result = await fyers_service.get_watchlist(list_id)
+        logger.info(f"Fyers watchlist API call: {result.get('success', 'unknown')}")
+        return result
+    except Exception as e:
+        logger.error(f"Failed to fetch Fyers watchlist: {str(e)}")
+        return {"success": False, "error": str(e)}
+
 @router.get("/health")
 async def get_broker_health() -> Dict[str, Any]:
     """Get overall health summary of all brokers"""
