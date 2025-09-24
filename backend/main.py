@@ -71,7 +71,7 @@ app.add_middleware(
 )
 
 # Include educational router if available
-if EDUCATIONAL_SYSTEM_AVAILABLE:
+if EDUCATIONAL_SYSTEM_AVAILABLE and education_router is not None:
     app.include_router(education_router)
     print("✅ Educational system router integrated")
 
