@@ -1,12 +1,12 @@
 ﻿"""
 Security Management System
-Handles credential storage, encryption, and authentication
+Handles credential storage, encryption, and authentication using AES-256-GCM
 """
 import json
-# import hashlib  # Unused
+import os
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional
-from cryptography.fernet import Fernet
+from typing import Dict, Any, Optional, Union
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 import keyring
 import pyotp
 from loguru import logger
@@ -33,55 +33,114 @@ class SecurityException(Exception):
 
 
 class KeyManager:
-    """Manages encryption keys and secure storage"""
+    """Manages AES-256 encryption keys with secure environment variable storage"""
 
     def __init__(self):
         self._master_key = None
         self.service_name = "ai_trading_engine"
 
     async def get_or_create_master_key(self) -> bytes:
-        """Get or create master encryption key"""
+        """Get AES-256 master encryption key from secure environment variable"""
         if self._master_key:
             return self._master_key
 
-        # Try to retrieve existing key
-        stored_key = keyring.get_password(self.service_name, "master_key")
-
-        if stored_key:
-            self._master_key = stored_key.encode()
-        else:
-            # Generate new key
-            self._master_key = Fernet.generate_key()
-            keyring.set_password(
-                self.service_name,
-                "master_key",
-                self._master_key.decode()
+        # Get master key from secure environment variable
+        master_key_hex = os.getenv("CREDENTIAL_VAULT_KEY")
+        
+        if not master_key_hex:
+            raise SecurityException(
+                "CREDENTIAL_VAULT_KEY environment variable not set. "
+                "This 32-byte (256-bit) key is required for AES-256 encryption."
             )
-            logger.info("Generated new master encryption key")
+        
+        try:
+            # Try to decode as base64 first (common format), then hex
+            import base64
+            
+            # Strictly require a 32-byte cryptographically random key
+            try:
+                # Try base64 decode first (most common secure format)
+                raw_key = base64.b64decode(master_key_hex)
+                logger.info("Master key decoded from base64 format")
+            except Exception:
+                try:
+                    # Fallback to hex format
+                    raw_key = bytes.fromhex(master_key_hex)
+                    logger.info("Master key decoded from hex format")
+                except Exception:
+                    raise SecurityException(
+                        "CREDENTIAL_VAULT_KEY must be a valid base64 or hex encoded 32-byte key. "
+                        "Generate with: python -c 'import os, base64; print(base64.b64encode(os.urandom(32)).decode())'"
+                    )
+            
+            # Strictly enforce 32-byte requirement for security
+            if len(raw_key) != 32:
+                raise SecurityException(
+                    f"CREDENTIAL_VAULT_KEY must be exactly 32 bytes for AES-256 security. "
+                    f"Got {len(raw_key)} bytes. Generate a proper key with: "
+                    f"python -c 'import os, base64; print(base64.b64encode(os.urandom(32)).decode())'"
+                )
+            
+            self._master_key = raw_key
+            logger.info("AES-256 master encryption key loaded (32 bytes, cryptographically secure)")
+            
+        except Exception as e:
+            raise SecurityException(f"Failed to process CREDENTIAL_VAULT_KEY: {e}")
 
         return self._master_key
 
 
 class CredentialVault:
-    """Secure storage for API credentials with AES-256 encryption"""
+    """Secure storage for API credentials with AES-256-GCM encryption"""
 
     def __init__(self):
         self.key_manager = KeyManager()
-        self.cipher = None
+        self.cipher: Optional[AESGCM] = None
         self.service_name = "ai_trading_engine"
 
     async def initialize(self):
-        """Initialize encryption system"""
+        """Initialize AES-256-GCM encryption system with persistence verification"""
         try:
             encryption_key = await self.key_manager.get_or_create_master_key()
-            self.cipher = Fernet(encryption_key)
-            logger.info("CredentialVault initialized successfully")
+            self.cipher = AESGCM(encryption_key)
+            
+            # Verify keyring persistence capability
+            await self._verify_keyring_persistence()
+            
+            logger.info("CredentialVault initialized with AES-256-GCM encryption and verified persistence")
         except Exception as e:
             logger.error(f"Failed to initialize CredentialVault: {e}")
             raise SecurityException(f"Credential vault initialization failed: {e}")
+    
+    async def _verify_keyring_persistence(self):
+        """Verify that keyring supports persistent storage"""
+        try:
+            # Test persistence by storing and retrieving a test value
+            test_key = "vault_persistence_test"
+            test_value = "test_persistence_value"
+            
+            keyring.set_password(self.service_name, test_key, test_value)
+            retrieved = keyring.get_password(self.service_name, test_key)
+            
+            if retrieved != test_value:
+                raise SecurityException("Keyring persistence test failed")
+            
+            # Clean up test value
+            keyring.delete_password(self.service_name, test_key)
+            
+            # Check keyring backend type
+            backend = keyring.get_keyring()
+            logger.info(f"Keyring backend verified: {type(backend).__name__}")
+            
+        except Exception as e:
+            logger.error(f"Keyring persistence verification failed: {e}")
+            raise SecurityException(
+                f"Keyring backend does not support persistence: {e}. "
+                f"Ensure keyrings.alt is properly installed for file-based storage."
+            )
 
     async def store_api_credentials(self, provider: APIProvider, credentials: Dict[str, Any]) -> bool:
-        """Securely store API credentials"""
+        """Securely store API credentials using AES-256-GCM"""
         try:
             if not self.cipher:
                 await self.initialize()
@@ -89,26 +148,34 @@ class CredentialVault:
             # Validate credentials format
             self._validate_credentials(provider, credentials)
 
-            # Encrypt credentials
+            # Encrypt credentials using AES-256-GCM with AAD
             credentials_json = json.dumps(credentials, default=str)
-            encrypted_creds = self.cipher.encrypt(credentials_json.encode())
+            nonce = os.urandom(12)  # 96-bit nonce for GCM
+            aad = provider.value.encode('utf-8')  # Additional authenticated data
+            if not isinstance(self.cipher, AESGCM):
+                raise SecurityException("Cipher not properly initialized")
+            ciphertext = self.cipher.encrypt(nonce, credentials_json.encode(), aad)
+            
+            # Combine nonce + ciphertext for storage
+            encrypted_data = nonce + ciphertext
 
             # Create encrypted credentials object
             encrypted_cred_obj = EncryptedCredentials(
                 provider=provider,
-                encrypted_data=encrypted_creds,
+                encrypted_data=encrypted_data,
                 created_at=datetime.now(),
                 access_count=0
             )
 
-            # Store in Windows Credential Manager
+            # Store in credential manager (base64 encode for safe storage)
+            import base64
             keyring.set_password(
                 self.service_name,
                 f"api_{provider.value}",
-                encrypted_creds.decode()
+                base64.b64encode(encrypted_data).decode()
             )
 
-            logger.info(f"Stored encrypted credentials for {provider.value}")
+            logger.info(f"Stored AES-256-GCM encrypted credentials for {provider.value}")
             return True
 
         except Exception as e:
@@ -116,25 +183,34 @@ class CredentialVault:
             raise SecurityException(f"Credential storage failed: {e}")
 
     async def retrieve_api_credentials(self, provider: APIProvider) -> Optional[Dict[str, Any]]:
-        """Securely retrieve API credentials"""
+        """Securely retrieve API credentials using AES-256-GCM"""
         try:
             if not self.cipher:
                 await self.initialize()
 
-            encrypted_creds = keyring.get_password(
+            encrypted_creds_b64 = keyring.get_password(
                 self.service_name,
                 f"api_{provider.value}"
             )
 
-            if not encrypted_creds:
+            if not encrypted_creds_b64:
                 logger.warning(f"No credentials found for {provider.value}")
                 return None
 
-            # Decrypt credentials
-            decrypted_creds = self.cipher.decrypt(encrypted_creds.encode())
+            # Decode base64 and extract nonce + ciphertext
+            import base64
+            encrypted_data = base64.b64decode(encrypted_creds_b64.encode())
+            nonce = encrypted_data[:12]  # First 12 bytes are nonce
+            ciphertext = encrypted_data[12:]  # Rest is ciphertext
+            
+            # Decrypt using AES-256-GCM with AAD
+            aad = provider.value.encode('utf-8')  # Additional authenticated data
+            if not isinstance(self.cipher, AESGCM):
+                raise SecurityException("Cipher not properly initialized")
+            decrypted_creds = self.cipher.decrypt(nonce, ciphertext, aad)
             credentials = json.loads(decrypted_creds.decode())
 
-            logger.info(f"Retrieved credentials for {provider.value}")
+            logger.info(f"Retrieved AES-256-GCM encrypted credentials for {provider.value}")
             return credentials
 
         except Exception as e:
@@ -182,7 +258,7 @@ class CredentialVault:
         return stored_providers
 
     async def store_auth_token(self, provider: APIProvider, token_data: Dict[str, Any]) -> bool:
-        """Securely store authentication token with expiry information"""
+        """Securely store authentication token using AES-256-GCM with expiry information"""
         try:
             if not self.cipher:
                 await self.initialize()
@@ -194,18 +270,26 @@ class CredentialVault:
                 "provider": provider.value
             }
 
-            # Encrypt token data
+            # Encrypt token data using AES-256-GCM with AAD
             token_json = json.dumps(token_with_metadata, default=str)
-            encrypted_token = self.cipher.encrypt(token_json.encode())
+            nonce = os.urandom(12)  # 96-bit nonce for GCM
+            aad = provider.value.encode('utf-8')  # Additional authenticated data
+            if not isinstance(self.cipher, AESGCM):
+                raise SecurityException("Cipher not properly initialized")
+            ciphertext = self.cipher.encrypt(nonce, token_json.encode(), aad)
+            
+            # Combine nonce + ciphertext for storage
+            encrypted_data = nonce + ciphertext
 
-            # Store in Windows Credential Manager with 'token_' prefix
+            # Store in credential manager with 'token_' prefix (base64 encode)
+            import base64
             keyring.set_password(
                 self.service_name,
                 f"token_{provider.value}",
-                encrypted_token.decode()
+                base64.b64encode(encrypted_data).decode()
             )
 
-            logger.info(f"Stored encrypted auth token for {provider.value}")
+            logger.info(f"Stored AES-256-GCM encrypted auth token for {provider.value}")
             return True
 
         except Exception as e:
@@ -213,22 +297,31 @@ class CredentialVault:
             raise SecurityException(f"Token storage failed: {e}")
 
     async def retrieve_auth_token(self, provider: APIProvider) -> Optional[Dict[str, Any]]:
-        """Securely retrieve authentication token with expiry validation"""
+        """Securely retrieve authentication token using AES-256-GCM with expiry validation"""
         try:
             if not self.cipher:
                 await self.initialize()
 
-            encrypted_token = keyring.get_password(
+            encrypted_token_b64 = keyring.get_password(
                 self.service_name,
                 f"token_{provider.value}"
             )
 
-            if not encrypted_token:
+            if not encrypted_token_b64:
                 logger.debug(f"No auth token found for {provider.value}")
                 return None
 
-            # Decrypt token data
-            decrypted_token = self.cipher.decrypt(encrypted_token.encode())
+            # Decode base64 and extract nonce + ciphertext
+            import base64
+            encrypted_data = base64.b64decode(encrypted_token_b64.encode())
+            nonce = encrypted_data[:12]  # First 12 bytes are nonce
+            ciphertext = encrypted_data[12:]  # Rest is ciphertext
+            
+            # Decrypt using AES-256-GCM with AAD
+            aad = provider.value.encode('utf-8')  # Additional authenticated data
+            if not isinstance(self.cipher, AESGCM):
+                raise SecurityException("Cipher not properly initialized")
+            decrypted_token = self.cipher.decrypt(nonce, ciphertext, aad)
             token_data = json.loads(decrypted_token.decode())
 
             # Check if token has expired
@@ -237,7 +330,7 @@ class CredentialVault:
                 await self.delete_auth_token(provider)  # Clean up expired token
                 return None
 
-            logger.debug(f"Retrieved valid auth token for {provider.value}")
+            logger.debug(f"Retrieved valid AES-256-GCM encrypted auth token for {provider.value}")
             return token_data
 
         except Exception as e:

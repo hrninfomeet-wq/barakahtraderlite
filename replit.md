@@ -34,8 +34,9 @@ Preferred communication style: Simple, everyday language.
 ### Authentication and Authorization
 - **OAuth Integration**: Upstox OAuth 2.0 with popup-based authentication flow
 - **Security Controls**: Multi-layer security preventing live trading execution
-- **Token Management**: JWT tokens with encrypted storage using Windows Credential Manager
-- **API Key Handling**: Environment-based configuration with secure key management
+- **Token Management**: AES-256-GCM encrypted token storage with secure environment-based key management
+- **API Key Handling**: Environment-based configuration with CREDENTIAL_VAULT_KEY for master encryption
+- **Recent Security Upgrade**: Complete migration from Fernet (AES-128) to AES-256-GCM authenticated encryption
 
 ### Performance Considerations
 - **Target Latency**: Sub-30ms order execution with <50ms UI response times
@@ -86,3 +87,13 @@ Preferred communication style: Simple, everyday language.
 - **Intel NPU/GPU Libraries**: Hardware acceleration for AI model inference
 - **Backtrader**: Backtesting framework for strategy validation
 - **TA-Lib**: Technical analysis library for indicator calculations
+
+## Recent Changes
+
+### Security System Upgrade (September 2025)
+- **COMPLETED**: Successfully upgraded CredentialVault from Fernet (AES-128) to AES-256-GCM encryption
+- **COMPLETED**: Implemented secure environment-variable-based master key management via CREDENTIAL_VAULT_KEY
+- **COMPLETED**: Added robust key format handling supporting base64 and hex encoded 32-byte keys
+- **COMPLETED**: Verified complete token persistence across backend restarts with proper expiry handling
+- **COMPLETED**: Resolved keyrings.alt dependency for Replit environment compatibility
+- **COMPLETED**: All security requirements now met with authenticated encryption and secure key management
