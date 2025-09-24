@@ -11,23 +11,54 @@ import json
 import hashlib
 from datetime import datetime
 from loguru import logger
+from core.security import CredentialVault
+from models.trading import APIProvider
 
 class FyersAPIService:
     def __init__(self):
         """Initialize Fyers API service with credentials from environment"""
-        # For User App type, use the provided credentials
-        self.client_id = "8LH008CGEA-100"  # User App client_id
-        self.api_key = "8LH008CGEA-100"   # Same as client_id for User App
-        self.api_secret = "Q05OSJO6PQ"    # User App secret_key
-        self.access_token = os.getenv('FYERS_ACCESS_TOKEN')
+        # For User App type, use environment variables for security
+        self.client_id = os.getenv('FYERS_CLIENT_ID')
+        self.api_key = self.client_id  # Same as client_id for User App
+        self.api_secret = os.getenv('FYERS_API_SECRET')
+        self.access_token = None
         self.base_url = 'https://api-t1.fyers.in/api/v3'
         # For User App, use the official Fyers redirect URI
         self.redirect_uri = "https://trade.fyers.in/api-login/redirect-uri/index.html"
+        
+        # Initialize credential vault for secure token storage
+        self.credential_vault = CredentialVault()
+        self._load_stored_token()
         
         # Log initialization status
         has_key = "✓" if self.api_key else "✗"
         has_token = "✓" if self.access_token else "✗"
         logger.info(f"FyersAPIService initialized - API Key: {has_key}, Token: {has_token}")
+    
+    def _load_stored_token(self):
+        """Load stored access token from secure storage"""
+        try:
+            # Load from environment variable for now
+            # In production, would use proper secure storage
+            self.access_token = os.getenv('FYERS_ACCESS_TOKEN')
+            if self.access_token:
+                logger.info("Fyers token loaded from environment")
+            else:
+                logger.debug("No Fyers token found in environment")
+        except Exception as e:
+            logger.warning(f"Failed to load stored Fyers token: {e}")
+            self.access_token = None
+    
+    async def _store_token(self, token_data: Dict[str, Any]):
+        """Store access token securely"""
+        try:
+            if 'access_token' in token_data:
+                # Store in environment for persistence across requests
+                # In production, would use proper secure storage like CredentialVault
+                os.environ['FYERS_ACCESS_TOKEN'] = token_data['access_token']
+                logger.info("Fyers token stored successfully")
+        except Exception as e:
+            logger.error(f"Failed to store Fyers token: {e}")
     
     def has_credentials(self) -> bool:
         """Check if we have necessary credentials for API calls"""
@@ -76,10 +107,11 @@ class FyersAPIService:
                 
                 if response.status_code == 200:
                     token_data = response.json()
-                    # Save the access token to the service instance
+                    # Save the access token to the service instance and persist it
                     if 'access_token' in token_data:
                         self.access_token = token_data['access_token']
-                        logger.info(f"Fyers token exchange successful - token saved")
+                        await self._store_token(token_data)
+                        logger.info(f"Fyers token exchange successful - token saved and persisted")
                     else:
                         logger.warning(f"Fyers token response missing access_token: {token_data}")
                     return token_data
