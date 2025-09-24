@@ -118,7 +118,7 @@ class FyersAPIService:
                 # Fyers market data endpoint
                 symbols_str = ','.join(fyers_symbols)
                 response = await client.get(
-                    f"{self.base_url}/data/quotes",
+                    f"{self.base_url}/quotes",
                     params={
                         'symbols': symbols_str,
                     },
