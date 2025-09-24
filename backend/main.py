@@ -180,8 +180,8 @@ async def get_market_data_batch(symbols: str, live_data_enabled: bool = True):
         }
 
 @app.get("/api/v1/option-data/{symbol}")
-async def get_option_data(symbol: str, expiry: str = "30 SEP 25", strike: int = 3060, option_type: str = "CE"):
-    """Get live option data from FYERS API"""
+async def get_option_data(symbol: str, expiry: str = "25 SEP 25", strike: int = 3060, option_type: str = "CE"):
+    """Get live option data from FYERS API - accepts full symbol (NSE:TCS25S3003060CE) or components"""
     try:
         from services.broker_manager import broker_manager
         import httpx
@@ -191,9 +191,16 @@ async def get_option_data(symbol: str, expiry: str = "30 SEP 25", strike: int = 
         if not fyers_broker or not hasattr(fyers_broker, 'access_token') or not fyers_broker.access_token:
             raise HTTPException(status_code=401, detail="FYERS not authenticated")
         
-        # Format option symbol for NSE
-        expiry_formatted = expiry.replace(" ", "").upper()  # "30SEP25"
-        fyers_symbol = f"NSE:{symbol}{expiry_formatted}{strike}{option_type}"
+        # If symbol already contains full FYERS format (has : and ends with CE/PE), use directly
+        if ":" in symbol and (symbol.endswith("CE") or symbol.endswith("PE")):
+            fyers_symbol = symbol
+            logger.info(f"Using provided full symbol: {fyers_symbol}")
+        else:
+            # Convert expiry format and pad strike for FYERS format
+            expiry_formatted = expiry.replace(" ", "").upper()  # "25SEP25"
+            strike_padded = f"{strike:06d}"  # Zero-pad to 6 digits  
+            fyers_symbol = f"NSE:{symbol.upper()}{expiry_formatted}{strike_padded}{option_type.upper()}"
+            logger.info(f"Constructed symbol: {fyers_symbol}")
         
         # Call FYERS API
         client_id = os.getenv('FYERS_CLIENT_ID')
@@ -202,7 +209,7 @@ async def get_option_data(symbol: str, expiry: str = "30 SEP 25", strike: int = 
             
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                'https://api-t1.fyers.in/api/v3/data/quotes',
+                'https://api-t1.fyers.in/data/quotes',
                 params={'symbols': fyers_symbol},
                 headers={'Authorization': f'{client_id}:{fyers_broker.access_token}'},
                 timeout=15.0
