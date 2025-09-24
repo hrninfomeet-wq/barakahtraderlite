@@ -280,6 +280,93 @@ class FyersAPIService:
             'provider': 'fyers',
         }
     
+    async def get_holdings(self) -> Dict[str, Any]:
+        """Fetch user's holdings/portfolio from Fyers API"""
+        if not self.has_credentials():
+            logger.warning("Fyers API credentials not available for holdings")
+            return {"error": "No valid credentials"}
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.base_url}/data/holdings",
+                    headers={
+                        'Authorization': f'{self.client_id}:{self.access_token}',
+                    },
+                    timeout=10.0
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    logger.info(f"Fyers holdings API success: {data.get('s', 'unknown')}")
+                    return {"success": True, "data": data, "source": "fyers"}
+                else:
+                    logger.error(f"Fyers holdings API error: {response.status_code} - {response.text}")
+                    return {"error": "Holdings API request failed", "status_code": response.status_code}
+                    
+        except Exception as e:
+            logger.error(f"Fyers holdings API error: {str(e)}")
+            return {"error": "Holdings API request failed", "exception": str(e)}
+
+    async def get_account_profile(self) -> Dict[str, Any]:
+        """Fetch user's account profile details from Fyers API"""
+        if not self.has_credentials():
+            logger.warning("Fyers API credentials not available for profile")
+            return {"error": "No valid credentials"}
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.base_url}/data/profile",
+                    headers={
+                        'Authorization': f'{self.client_id}:{self.access_token}',
+                    },
+                    timeout=10.0
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    logger.info(f"Fyers profile API success: {data.get('s', 'unknown')}")
+                    return {"success": True, "data": data, "source": "fyers"}
+                else:
+                    logger.error(f"Fyers profile API error: {response.status_code} - {response.text}")
+                    return {"error": "Profile API request failed", "status_code": response.status_code}
+                    
+        except Exception as e:
+            logger.error(f"Fyers profile API error: {str(e)}")
+            return {"error": "Profile API request failed", "exception": str(e)}
+
+    async def get_watchlist(self, list_id: str = "1") -> Dict[str, Any]:
+        """Fetch user's watchlist from Fyers API"""
+        if not self.has_credentials():
+            logger.warning("Fyers API credentials not available for watchlist")
+            return {"error": "No valid credentials"}
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.base_url}/data/watchlist",
+                    params={
+                        'list_id': list_id
+                    },
+                    headers={
+                        'Authorization': f'{self.client_id}:{self.access_token}',
+                    },
+                    timeout=10.0
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    logger.info(f"Fyers watchlist API success: {data.get('s', 'unknown')}")
+                    return {"success": True, "data": data, "source": "fyers", "list_id": list_id}
+                else:
+                    logger.error(f"Fyers watchlist API error: {response.status_code} - {response.text}")
+                    return {"error": "Watchlist API request failed", "status_code": response.status_code}
+                    
+        except Exception as e:
+            logger.error(f"Fyers watchlist API error: {str(e)}")
+            return {"error": "Watchlist API request failed", "exception": str(e)}
+
     def disconnect(self):
         """Clear stored credentials"""
         self.access_token = None
