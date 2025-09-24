@@ -179,6 +179,84 @@ async def get_market_data_batch(symbols: str, live_data_enabled: bool = True):
             **get_security_headers()
         }
 
+@app.get("/api/v1/option-data/{symbol}")
+async def get_option_data(symbol: str, expiry: str = "30 SEP 25", strike: int = 3060, option_type: str = "CE"):
+    """Get live option data from FYERS API"""
+    try:
+        from services.broker_manager import broker_manager
+        import httpx
+        
+        # Get authenticated FYERS broker
+        fyers_broker = broker_manager.brokers.get('fyers')
+        if not fyers_broker or not hasattr(fyers_broker, 'access_token') or not fyers_broker.access_token:
+            raise HTTPException(status_code=401, detail="FYERS not authenticated")
+        
+        # Format option symbol for NSE
+        expiry_formatted = expiry.replace(" ", "").upper()  # "30SEP25"
+        fyers_symbol = f"NSE:{symbol}{expiry_formatted}{strike}{option_type}"
+        
+        # Call FYERS API
+        client_id = os.getenv('FYERS_CLIENT_ID')
+        if not client_id:
+            raise HTTPException(status_code=500, detail="FYERS_CLIENT_ID not configured")
+            
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                'https://api-t1.fyers.in/api/v3/data/quotes',
+                params={'symbols': fyers_symbol},
+                headers={'Authorization': f'{client_id}:{fyers_broker.access_token}'},
+                timeout=15.0
+            )
+            
+            if response.status_code != 200:
+                raise HTTPException(status_code=response.status_code, detail=f"FYERS API error: {response.text}")
+            
+            data = response.json()
+            quotes_array = data.get('d', [])
+            
+            if not quotes_array or len(quotes_array) == 0:
+                raise HTTPException(status_code=404, detail=f"No data found for {fyers_symbol}")
+            
+            quote_item = quotes_array[0]
+            if not isinstance(quote_item, dict) or 'v' not in quote_item:
+                raise HTTPException(status_code=500, detail="Invalid FYERS response format")
+            
+            quote_data = quote_item['v']
+            
+            # Calculate change and percentage
+            last_price = quote_data.get('lp', 0)
+            prev_close = quote_data.get('prev_close_price', 0)
+            change = last_price - prev_close if prev_close > 0 else 0
+            change_percent = (change / prev_close * 100) if prev_close > 0 else 0
+            
+            return {
+                "success": True,
+                "data": {
+                    "symbol": fyers_symbol,
+                    "last_price": last_price,
+                    "change": change,
+                    "change_percent": change_percent,
+                    "open_interest": quote_data.get('oi', 0),
+                    "oi_change": quote_data.get('oi_change', 0),
+                    "volume": quote_data.get('volume', 0),
+                    "high": quote_data.get('high_price', 0),
+                    "low": quote_data.get('low_price', 0),
+                    "open": quote_data.get('open_price', 0),
+                    "prev_close": prev_close,
+                    "bid": quote_data.get('bid', 0),
+                    "ask": quote_data.get('ask', 0),
+                    "source": "fyers",
+                    "timestamp": datetime.now().isoformat()
+                },
+                **get_security_headers()
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Option data error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/v1/paper/order")
 async def place_paper_order(order_data: dict):
     """Place secure paper trading order"""
