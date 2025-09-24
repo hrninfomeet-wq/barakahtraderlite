@@ -22,7 +22,7 @@ class FyersAPIService:
         self.api_key = self.client_id  # Same as client_id for User App
         self.api_secret = os.getenv('FYERS_API_SECRET')
         self.access_token = None
-        self.base_url = 'https://api-t1.fyers.in/api/v3'
+        self.base_url = 'https://api-t1.fyers.in'
         # For User App, use the official Fyers redirect URI
         self.redirect_uri = "https://trade.fyers.in/api-login/redirect-uri/index.html"
         
@@ -134,6 +134,11 @@ class FyersAPIService:
             symbol_mapping = {
                 'RELIANCE': 'NSE:RELIANCE-EQ',
                 'TCS': 'NSE:TCS-EQ',
+                'WIPRO': 'NSE:WIPRO-EQ',
+                'DEVYANI': 'NSE:DEVYANI-EQ',
+                'DEVIT': 'NSE:DEVYANI-EQ',  # Alternative name for DEVYANI
+                'BEL': 'NSE:BEL-EQ',
+                'TATAMOTORS': 'NSE:TATAMOTORS-EQ',
                 'NIFTY': 'NSE:NIFTY50-INDEX',
                 'BANKNIFTY': 'NSE:NIFTYBANK-INDEX',
             }
@@ -150,13 +155,12 @@ class FyersAPIService:
                 # Fyers market data endpoint
                 symbols_str = ','.join(fyers_symbols)
                 response = await client.get(
-                    f"{self.base_url}/quotes",
+                    f"{self.base_url}/data/quotes",
                     params={
                         'symbols': symbols_str,
                     },
                     headers={
-                        'Authorization': f'Bearer {self.access_token}',
-                        'Content-Type': 'application/json',
+                        'Authorization': f'{self.client_id}:{self.access_token}',
                     },
                     timeout=10.0
                 )
@@ -174,8 +178,8 @@ class FyersAPIService:
                     symbol_to_original = {fyers_symbols[i]: symbols[i] for i in range(len(symbols))}
                     
                     for quote_item in quotes_array:
-                        if isinstance(quote_item, dict) and 'symbol' in quote_item and 'v' in quote_item:
-                            fyers_symbol = quote_item['symbol']
+                        if isinstance(quote_item, dict) and 'n' in quote_item and 'v' in quote_item:
+                            fyers_symbol = quote_item['n']  # 'n' contains the symbol name in Fyers API
                             quote_data = quote_item['v']
                             original_symbol = symbol_to_original.get(fyers_symbol)
                             
@@ -186,9 +190,12 @@ class FyersAPIService:
                                     'change': float(quote_data.get('ch', 0)),
                                     'change_percent': float(quote_data.get('chp', 0)),
                                     'volume': int(quote_data.get('volume', 0)),
-                                    'high': float(quote_data.get('h', 0)),
-                                    'low': float(quote_data.get('l', 0)),
-                                    'open': float(quote_data.get('o', 0)),
+                                    'high': float(quote_data.get('high_price', 0)),
+                                    'low': float(quote_data.get('low_price', 0)),
+                                    'open': float(quote_data.get('open_price', 0)),
+                                    'prev_close': float(quote_data.get('prev_close_price', 0)),
+                                    'bid': float(quote_data.get('bid', 0)),
+                                    'ask': float(quote_data.get('ask', 0)),
                                 }
                     
                     # Ensure we have data for all requested symbols
