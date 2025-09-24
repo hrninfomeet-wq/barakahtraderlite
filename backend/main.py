@@ -180,7 +180,7 @@ async def get_market_data_batch(symbols: str, live_data_enabled: bool = True):
         }
 
 @app.get("/api/v1/option-data/{symbol}")
-async def get_option_data(symbol: str, expiry: str = "25 SEP 25", strike: int = 3060, option_type: str = "CE"):
+async def get_option_data(symbol: str, expiry: str = "30 SEP 25", strike: int = 3060, option_type: str = "CE"):
     """Get live option data from FYERS API - accepts full symbol (NSE:TCS25S3003060CE) or components"""
     try:
         from services.broker_manager import broker_manager
