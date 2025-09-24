@@ -230,29 +230,6 @@ class BrokerManager:
             "aggregated": True,
         }
     
-    def get_auth_url(self, broker_id: str) -> str:
-        """Get authentication URL for a specific broker"""
-        if broker_id not in self.brokers:
-            raise ValueError(f"Unknown broker: {broker_id}")
-        
-        service = self.brokers[broker_id]
-        return service.get_auth_url()
-    
-    async def exchange_code_for_token(self, broker_id: str, auth_code: str) -> Dict[str, Any]:
-        """Exchange authorization code for access token for a specific broker"""
-        if broker_id not in self.brokers:
-            return {"error": f"Unknown broker: {broker_id}"}
-        
-        service = self.brokers[broker_id]
-        result = await service.exchange_code_for_token(auth_code)
-        
-        # Ensure token is persisted in the service after successful exchange
-        if not result.get("error") and result.get("access_token"):
-            service.access_token = result["access_token"]
-            logger.info(f"Token successfully persisted for {broker_id}")
-        
-        return result
-    
     def disconnect_broker(self, broker_id: str) -> Dict[str, Any]:
         """Disconnect a specific broker"""
         if broker_id not in self.brokers:

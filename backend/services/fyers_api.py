@@ -43,10 +43,12 @@ class FyersAPIService:
             import asyncio
             from models.trading import APIProvider
             
-            # Run async token retrieval
+            # Run async token retrieval with proper initialization
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
+                # Ensure CredentialVault is initialized
+                loop.run_until_complete(self.credential_vault.initialize())
                 token_data = loop.run_until_complete(
                     self.credential_vault.retrieve_auth_token(APIProvider.FYERS)
                 )

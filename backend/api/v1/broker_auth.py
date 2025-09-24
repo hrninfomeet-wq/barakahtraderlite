@@ -169,6 +169,47 @@ async def broker_callback(broker_id: str, code: Optional[str] = None, error: Opt
         """
         return Response(content=html_content, media_type="text/html")
 
+@router.post("/exchange-code")
+async def exchange_auth_code(request: AuthCallbackRequest) -> Dict[str, Any]:
+    """Manual code exchange endpoint for User App flow (e.g., FYERS User App)"""
+    try:
+        broker_id = request.broker
+        auth_code = request.code
+        
+        logger.info(f"Manual code exchange requested for {broker_id}")
+        
+        # Exchange code for token using broker manager
+        token_result = await broker_manager.exchange_code_for_token(broker_id, auth_code)
+        
+        if token_result.get("error"):
+            logger.error(f"{broker_id} manual token exchange failed: {token_result.get('error')}")
+            return {
+                "success": False,
+                "error": token_result.get("error"),
+                "broker": broker_id
+            }
+        
+        logger.info(f"{broker_id} manual authentication successful")
+        # Extract token data from the BrokerManager response
+        token_data = token_result.get('token_data', {})
+        return {
+            "success": True,
+            "message": f"{broker_id} authenticated successfully",
+            "broker": broker_id,
+            "token_info": {
+                "has_token": bool(token_data.get('access_token')),
+                "token_type": token_data.get('token_type', 'access_token')
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Manual code exchange error: {str(e)}")
+        return {
+            "success": False,
+            "error": "Server error during authentication",
+            "details": str(e)
+        }
+
 @router.post("/{broker_id}/api-key")
 async def authenticate_broker_with_api_key(broker_id: str, request: Request) -> Dict[str, Any]:
     """Authenticate broker using API key (for brokers that don't use OAuth)"""
