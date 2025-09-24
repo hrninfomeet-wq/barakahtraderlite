@@ -22,7 +22,8 @@ class FyersAPIService:
         self.api_key = self.client_id  # Same as client_id for User App
         self.api_secret = os.getenv('FYERS_API_SECRET')
         self.access_token = None
-        self.base_url = 'https://api-t1.fyers.in/api/v3'
+        self.trading_base_url = 'https://api-t1.fyers.in/api/v3'
+        self.data_base_url = 'https://api-t1.fyers.in/data'
         # For User App, use the official Fyers redirect URI
         self.redirect_uri = "https://trade.fyers.in/api-login/redirect-uri/index.html"
         self.token_expires_at = None
@@ -214,7 +215,7 @@ class FyersAPIService:
                 # Fyers market data endpoint
                 symbols_str = ','.join(fyers_symbols)
                 response = await client.get(
-                    f"{self.base_url}/data/quotes",
+                    f"{self.data_base_url}/quotes",
                     params={
                         'symbols': symbols_str,
                     },
@@ -312,7 +313,7 @@ class FyersAPIService:
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(
-                    f"{self.base_url}/holdings",
+                    f"{self.trading_base_url}/holdings",
                     headers={
                         'Authorization': f'{self.client_id}:{self.access_token}',
                     },
@@ -340,7 +341,7 @@ class FyersAPIService:
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(
-                    f"{self.base_url}/profile",
+                    f"{self.trading_base_url}/profile",
                     headers={
                         'Authorization': f'{self.client_id}:{self.access_token}',
                     },
@@ -368,7 +369,7 @@ class FyersAPIService:
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(
-                    f"{self.base_url}/funds",
+                    f"{self.trading_base_url}/funds",
                     headers={
                         'Authorization': f'{self.client_id}:{self.access_token}',
                     },
@@ -404,7 +405,7 @@ class FyersAPIService:
             
             async with httpx.AsyncClient() as client:
                 response = await client.get(
-                    f"{self.base_url}/data/quotes",
+                    f"{self.data_base_url}/quotes",
                     params={
                         'symbols': option_symbol,
                     },
