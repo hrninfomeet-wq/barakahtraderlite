@@ -51,14 +51,22 @@ class FyersAPIService:
     async def exchange_code_for_token(self, auth_code: str) -> Dict[str, Any]:
         """Exchange authorization code for access token"""
         try:
+            # Check required credentials
+            if not self.api_key or not self.api_secret:
+                return {"error": "Missing Fyers API credentials", "details": "API key or secret not configured"}
+            
+            # Generate appIdHash as per Fyers v3 API specification
+            app_id_hash = hashlib.sha256(f"{self.api_key}:{self.api_secret}".encode('utf-8')).hexdigest()
+            
             async with httpx.AsyncClient() as client:
-                # Fyers token exchange endpoint - APIv3 auth but v2 validate endpoint!
+                # Fyers v3 token exchange endpoint - updated to correct URL
                 response = await client.post(
-                    "https://api.fyers.in/api/v2/validate-authcode",
+                    "https://api-t1.fyers.in/api/v3/validate-authcode",
                     json={
                         'grant_type': 'authorization_code',
-                        'appIdHash': hashlib.sha256(f"{self.api_key}:{self.api_secret}".encode('utf-8')).hexdigest(),
-                        'code': auth_code
+                        'appIdHash': app_id_hash,
+                        'code': auth_code,
+                        'client_id': self.api_key  # Added client_id as required by v3
                     },
                     headers={
                         'Content-Type': 'application/json'
