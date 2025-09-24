@@ -31,7 +31,7 @@ class FyersAPIService:
     
     def has_credentials(self) -> bool:
         """Check if we have necessary credentials for API calls"""
-        return bool(self.api_key and self.access_token and self.client_id)
+        return bool(self.api_key and self.access_token)
     
     def get_auth_url(self) -> str:
         """Generate Fyers OAuth URL for user authentication"""
@@ -76,7 +76,12 @@ class FyersAPIService:
                 
                 if response.status_code == 200:
                     token_data = response.json()
-                    logger.info("Fyers token exchange successful")
+                    # Save the access token to the service instance
+                    if 'access_token' in token_data:
+                        self.access_token = token_data['access_token']
+                        logger.info(f"Fyers token exchange successful - token saved")
+                    else:
+                        logger.warning(f"Fyers token response missing access_token: {token_data}")
                     return token_data
                 else:
                     logger.error(f"Fyers token exchange failed: {response.status_code} - {response.text}")
