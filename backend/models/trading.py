@@ -14,6 +14,8 @@ class APIProvider(str, Enum):
     FYERS = "fyers"
     UPSTOX = "upstox"
     ALICE_BLUE = "alice_blue"
+    # Backwards compatibility alias
+    ALICEBLUE = "alice_blue"
 
 
 class HealthStatus(str, Enum):

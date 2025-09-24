@@ -17,15 +17,23 @@ from models.trading import APIProvider
 class AliceBlueAPIService:
     def __init__(self):
         """Initialize AliceBlue API service with OAuth 2.0 credentials"""
-        # OAuth 2.0 Configuration
-        self.user_id = os.getenv('ALICEBLUE_USER_ID', 'AB104570')  # Default as specified
-        self.api_key = os.getenv('ALICEBLUE_API_KEY', '7vDzIjpGdC')  # Default as specified
+        # OAuth 2.0 Configuration - ONLY from environment variables
+        self.user_id = os.getenv('ALICEBLUE_USER_ID')
+        self.api_key = os.getenv('ALICEBLUE_API_KEY')
         self.app_code = self.api_key  # Same as API key for AliceBlue
-        self.api_secret = os.getenv('ALICEBLUE_API_SECRET', 'NfUJUQmmuVErCcdRmPIdjnRCWGdkTHLuVEJTJprlgtuQlYGsoYzWMGOVGWlOiEcvdBTDhYEJFeZDUBeTQ.fHredaGvhqYEjlKbNkK')
+        self.api_secret = os.getenv('ALICEBLUE_API_SECRET')
         
-        # AliceBlue API URLs as specified
+        # Validate required credentials
+        if not self.api_key:
+            logger.error("ALICEBLUE_API_KEY environment variable is required")
+        if not self.api_secret:
+            logger.error("ALICEBLUE_API_SECRET environment variable is required")
+        if not self.user_id:
+            logger.error("ALICEBLUE_USER_ID environment variable is required")
+        
+        # AliceBlue API URLs
         self.base_url = 'https://ant.aliceblueonline.com/open-api/od/v1'
-        self.auth_url = 'https://ant.aliceblueonline.com/?appcode=7vDzIjpGdC'
+        # Auth URL will be constructed dynamically using environment API key
         
         # OAuth configuration
         replit_domain = os.getenv('REPLIT_DEV_DOMAIN', 'localhost:5000')
@@ -49,21 +57,34 @@ class AliceBlueAPIService:
     def _load_stored_token(self):
         """Load stored access token with expiry check from secure CredentialVault"""
         try:
-            # Retrieve token from secure CredentialVault
-            import asyncio
+            # Skip token loading during initialization to avoid event loop issues
+            # Token will be loaded asynchronously when needed
+            logger.debug("Token loading deferred - will load asynchronously when needed")
+            self.access_token = None
+            self.session_id = None
+            self.token_expires_at = None
+                
+        except Exception as e:
+            logger.warning(f"Failed to initialize token loading: {e}")
+            self.access_token = None
+            self.session_id = None
+            self.token_expires_at = None
+    
+    async def _ensure_token_loaded(self):
+        """Safely load stored token in async context"""
+        try:
             from models.trading import APIProvider
             
-            # Run async token retrieval with proper initialization
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                # Ensure CredentialVault is initialized
-                loop.run_until_complete(self.credential_vault.initialize())
-                token_data = loop.run_until_complete(
-                    self.credential_vault.retrieve_auth_token(APIProvider.ALICEBLUE)
-                )
-            finally:
-                loop.close()
+            # Check if we already have a valid token
+            if self.access_token and self.token_expires_at:
+                if datetime.now() < self.token_expires_at - timedelta(minutes=30):
+                    return  # Token is still valid
+            
+            # Initialize credential vault if needed
+            await self.credential_vault.initialize()
+            
+            # Retrieve token from secure CredentialVault
+            token_data = await self.credential_vault.retrieve_auth_token(APIProvider.ALICEBLUE)
             
             if token_data:
                 self.access_token = token_data.get('access_token')
@@ -84,15 +105,9 @@ class AliceBlueAPIService:
                 logger.info("AliceBlue token loaded from secure CredentialVault")
             else:
                 logger.debug("No AliceBlue token found in CredentialVault")
-                self.access_token = None
-                self.session_id = None
-                self.token_expires_at = None
                 
         except Exception as e:
             logger.warning(f"Failed to load stored AliceBlue token from CredentialVault: {e}")
-            self.access_token = None
-            self.session_id = None
-            self.token_expires_at = None
     
     async def _store_token(self, token_data: Dict[str, Any]):
         """Store access token with expiry information in secure CredentialVault"""
@@ -128,7 +143,19 @@ class AliceBlueAPIService:
     
     def has_credentials(self) -> bool:
         """Check if we have necessary credentials for API calls"""
-        if not (self.api_key and self.api_secret and (self.access_token or self.session_id)):
+        # Check environment variables first
+        if not self.api_key:
+            logger.warning("AliceBlue API key not configured in environment")
+            return False
+        if not self.api_secret:
+            logger.warning("AliceBlue API secret not configured in environment")
+            return False
+        if not self.user_id:
+            logger.warning("AliceBlue User ID not configured in environment")
+            return False
+            
+        # Check for access token
+        if not (self.access_token or self.session_id):
             return False
             
         # Check if token has expired
@@ -141,10 +168,10 @@ class AliceBlueAPIService:
     def get_auth_url(self) -> str:
         """Generate AliceBlue OAuth URL for user authentication"""
         if not self.api_key:
-            raise ValueError("AliceBlue API key not configured")
+            raise ValueError("AliceBlue API key not configured in environment variables")
             
-        # AliceBlue OAuth URL construction with specified parameters
-        auth_url = f"{self.auth_url}&redirect_uri={self.redirect_uri}&response_type=code&state=sample_state"
+        # AliceBlue auth URL construction using environment API key (dynamic)
+        auth_url = f"https://ant.aliceblueonline.com/?appcode={self.api_key}&redirect_uri={self.redirect_uri}"
         
         return auth_url
     
@@ -220,6 +247,9 @@ class AliceBlueAPIService:
     
     async def _make_authenticated_request(self, method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
         """Make authenticated API request to AliceBlue"""
+        # Ensure token is loaded
+        await self._ensure_token_loaded()
+        
         if not self.has_credentials():
             return {"error": "No valid credentials available"}
         
@@ -313,6 +343,9 @@ class AliceBlueAPIService:
     
     async def get_market_data(self, symbols: List[str]) -> Dict[str, Any]:
         """Fetch market data for given symbols from AliceBlue API"""
+        # Ensure token is loaded
+        await self._ensure_token_loaded()
+        
         if not self.has_credentials():
             logger.warning("AliceBlue API credentials not available")
             return {"error": "No valid credentials"}
@@ -371,7 +404,7 @@ class AliceBlueAPIService:
             logger.error(f"AliceBlue market data error: {str(e)}")
             return {"error": "Market data request failed", "exception": str(e)}
     
-    async def get_historical_data(self, symbol: str, interval: str = '1day', from_date: str = None, to_date: str = None) -> Dict[str, Any]:
+    async def get_historical_data(self, symbol: str, interval: str = '1day', from_date: Optional[str] = None, to_date: Optional[str] = None) -> Dict[str, Any]:
         """Get historical data for a symbol"""
         logger.info(f"Fetching AliceBlue historical data for {symbol}")
         
@@ -409,8 +442,11 @@ class AliceBlueAPIService:
         """Build query string from parameters"""
         return '&'.join([f"{k}={v}" for k, v in params.items() if v is not None])
     
-    def get_status(self) -> Dict[str, Any]:
+    async def get_status(self) -> Dict[str, Any]:
         """Get current authentication status"""
+        # Try to load token first
+        await self._ensure_token_loaded()
+        
         return {
             'has_api_key': bool(self.api_key),
             'has_api_secret': bool(self.api_secret),
@@ -425,7 +461,7 @@ class AliceBlueAPIService:
         """Clear stored tokens and logout"""
         try:
             # Clear tokens from CredentialVault
-            await self.credential_vault.clear_auth_token(APIProvider.ALICEBLUE)
+            await self.credential_vault.delete_auth_token(APIProvider.ALICEBLUE)
             
             # Clear local tokens
             self.access_token = None

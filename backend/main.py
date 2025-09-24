@@ -171,6 +171,10 @@ async def get_market_data_batch(symbols: str, live_data_enabled: bool = True):
     except Exception as e:
         logger.error(f"Market data error: {str(e)}")
         # Fallback to demo data on any error
+        try:
+            symbol_list = [s.strip() for s in symbols.split(',') if s.strip()]
+        except:
+            symbol_list = ["NIFTY", "BANKNIFTY"]  # Default fallback symbols
         from services.upstox_api import UpstoxAPIService
         upstox_service = UpstoxAPIService()
         result = upstox_service._generate_demo_data(symbol_list)

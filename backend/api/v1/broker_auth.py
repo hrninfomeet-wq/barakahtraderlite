@@ -20,13 +20,13 @@ class AuthCallbackRequest(BaseModel):
 
 class AliceBlueCallbackRequest(BaseModel):
     authCode: str
-    userId: str = None
+    userId: Optional[str] = None
 
 @router.get("/{broker_id}/status")
 async def get_broker_status(broker_id: str) -> Dict[str, Any]:
     """Get authentication status for a specific broker"""
     try:
-        status = broker_manager.get_broker_status(broker_id)
+        status = await broker_manager.get_broker_status(broker_id)
         logger.info(f"Status check for {broker_id}: {status.get('status', 'unknown')}")
         return status
     except Exception as e:
@@ -37,7 +37,7 @@ async def get_broker_status(broker_id: str) -> Dict[str, Any]:
 async def get_all_broker_statuses() -> Dict[str, Any]:
     """Get authentication status for all brokers"""
     try:
-        statuses = broker_manager.get_all_broker_statuses()
+        statuses = await broker_manager.get_all_broker_statuses()
         logger.info(f"All broker statuses: {statuses['connected_count']}/{statuses['total_count']} connected")
         return statuses
     except Exception as e:
@@ -64,7 +64,14 @@ async def broker_login(broker_id: str) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Failed to generate auth URL for {broker_id}")
 
 @router.get("/{broker_id}/callback")
-async def broker_callback(broker_id: str, code: Optional[str] = None, error: Optional[str] = None):
+async def broker_callback(
+    broker_id: str, 
+    code: Optional[str] = None, 
+    error: Optional[str] = None,
+    # AliceBlue-specific parameters
+    authCode: Optional[str] = None,
+    userId: Optional[str] = None
+):
     """Handle OAuth callback from broker"""
     if error:
         logger.error(f"{broker_id} OAuth error: {error}")
@@ -87,8 +94,19 @@ async def broker_callback(broker_id: str, code: Optional[str] = None, error: Opt
         """
         return Response(content=html_content, media_type="text/html")
     
-    if not code:
-        logger.error(f"{broker_id} callback missing authorization code")
+    # Handle AliceBlue-specific parameters
+    if broker_id.lower() == 'aliceblue':
+        auth_code_param = authCode
+        user_id_param = userId
+        logger.info(f"AliceBlue callback received - authCode present: {bool(auth_code_param)}, userId: {user_id_param}")
+    else:
+        # Standard OAuth parameters for other brokers
+        auth_code_param = code
+        user_id_param = None
+    
+    if not auth_code_param:
+        error_msg = "Missing authCode" if broker_id.lower() == 'aliceblue' else "Missing authorization code"
+        logger.error(f"{broker_id} callback {error_msg.lower()}")
         html_content = f"""
         <html>
         <body>
@@ -96,11 +114,11 @@ async def broker_callback(broker_id: str, code: Optional[str] = None, error: Opt
         window.opener.postMessage({{
             type: '{broker_id.upper()}_AUTH_ERROR',
             success: false,
-            error: 'Missing authorization code'
+            error: '{error_msg}'
         }}, '*');
         window.close();
         </script>
-        <p>Authentication failed: Missing authorization code</p>
+        <p>Authentication failed: {error_msg}</p>
         <p>You can close this window.</p>
         </body>
         </html>
@@ -108,8 +126,11 @@ async def broker_callback(broker_id: str, code: Optional[str] = None, error: Opt
         return Response(content=html_content, media_type="text/html")
     
     try:
-        # Exchange code for token
-        token_result = await broker_manager.exchange_code_for_token(broker_id, code)
+        # Exchange code for token with user_id for AliceBlue
+        if broker_id.lower() == 'aliceblue':
+            token_result = await broker_manager.exchange_code_for_token(broker_id, auth_code_param, user_id_param)
+        else:
+            token_result = await broker_manager.exchange_code_for_token(broker_id, auth_code_param)
         
         if token_result.get("error"):
             logger.error(f"{broker_id} token exchange failed: {token_result.get('error')}")

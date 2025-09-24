@@ -98,19 +98,33 @@ class BrokerManager:
                 connected.append(broker_id)
         return connected
     
-    def get_broker_status(self, broker_id: str) -> Dict[str, Any]:
+    async def get_broker_status(self, broker_id: str) -> Dict[str, Any]:
         """Get status for a specific broker"""
         if broker_id not in self.brokers:
             return {"error": "Unknown broker"}
         
         service = self.brokers[broker_id]
-        return service.get_status()
+        # Handle both sync and async get_status methods
+        if hasattr(service.get_status, '__call__'):
+            if asyncio.iscoroutinefunction(service.get_status):
+                return await service.get_status()
+            else:
+                return service.get_status()
+        else:
+            return {"error": "Service does not have get_status method"}
     
-    def get_all_broker_statuses(self) -> Dict[str, Any]:
+    async def get_all_broker_statuses(self) -> Dict[str, Any]:
         """Get status for all brokers"""
         statuses = {}
         for broker_id, service in self.brokers.items():
-            statuses[broker_id] = service.get_status()
+            # Handle both sync and async get_status methods
+            if hasattr(service.get_status, '__call__'):
+                if asyncio.iscoroutinefunction(service.get_status):
+                    statuses[broker_id] = await service.get_status()
+                else:
+                    statuses[broker_id] = service.get_status()
+            else:
+                statuses[broker_id] = {"error": "Service does not have get_status method"}
         
         connected_count = len([s for s in statuses.values() if s.get('has_credentials')])
         
