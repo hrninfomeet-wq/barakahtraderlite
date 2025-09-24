@@ -14,6 +14,8 @@ export default function Home() {
   const [brokerStatuses, setBrokerStatuses] = useState<Record<string, BrokerStatus>>({});
   const [loading, setLoading] = useState(true);
   const [authenticating, setAuthenticating] = useState<string | null>(null);
+  const [fyersAuthStep, setFyersAuthStep] = useState<'initial' | 'waiting_for_code' | 'processing'>('initial');
+  const [fyersAuthCode, setFyersAuthCode] = useState('');
 
   const fetchBrokerStatuses = async () => {
     try {
@@ -83,6 +85,25 @@ export default function Home() {
         return;
       }
       
+      // Special handling for Fyers User App authentication
+      if (broker === 'fyers') {
+        // Fyers User App - manual code entry flow
+        const response = await fetch('/api/v1/auth/fyers/url');
+        const data = await response.json();
+        
+        if (data.error) {
+          console.error('Fyers auth URL error:', data.error);
+          alert('Error: ' + data.error);
+          setAuthenticating(null);
+          return;
+        }
+        
+        // Open Fyers auth in new tab and show code input
+        window.open(data.auth_url, '_blank');
+        setFyersAuthStep('waiting_for_code');
+        return;
+      }
+      
       // OAuth flow for other brokers
       const response = await fetch(`/api/v1/auth/${broker}/login`);
       const data = await response.json();
@@ -138,6 +159,49 @@ export default function Home() {
       console.error(`Error authenticating ${broker}:`, error);
       setAuthenticating(null);
     }
+  };
+
+  const submitFyersCode = async () => {
+    if (!fyersAuthCode.trim()) {
+      alert('Please enter the authorization code');
+      return;
+    }
+    
+    try {
+      setFyersAuthStep('processing');
+      
+      const response = await fetch('/api/v1/auth/fyers/manual-auth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ auth_code: fyersAuthCode.trim() }),
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log('Fyers authentication successful');
+        fetchBrokerStatuses();
+        setFyersAuthStep('initial');
+        setFyersAuthCode('');
+        setAuthenticating(null);
+      } else {
+        console.error('Fyers authentication failed:', result.error);
+        alert('Authentication failed: ' + result.error);
+        setFyersAuthStep('waiting_for_code');
+      }
+    } catch (error) {
+      console.error('Fyers authentication error:', error);
+      alert('Authentication error: ' + error);
+      setFyersAuthStep('waiting_for_code');
+    }
+  };
+  
+  const cancelFyersAuth = () => {
+    setFyersAuthStep('initial');
+    setFyersAuthCode('');
+    setAuthenticating(null);
   };
 
   useEffect(() => {
@@ -244,6 +308,64 @@ export default function Home() {
             ))}
           </div>
         </div>
+
+        {/* Fyers Manual Authentication Modal */}
+        {fyersAuthStep === 'waiting_for_code' && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Fyers Authentication - Step 2</h3>
+              <div className="space-y-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-900 mb-2">Instructions:</h4>
+                  <ol className="text-sm text-blue-800 space-y-1">
+                    <li>1. Complete login in the new tab that opened</li>
+                    <li>2. Copy the authorization code from the Fyers page</li>
+                    <li>3. Paste it below and click Submit</li>
+                  </ol>
+                </div>
+                
+                <div>
+                  <label htmlFor="authCode" className="block text-sm font-medium text-gray-700 mb-2">
+                    Authorization Code:
+                  </label>
+                  <input
+                    id="authCode"
+                    type="text"
+                    value={fyersAuthCode}
+                    onChange={(e) => setFyersAuthCode(e.target.value)}
+                    placeholder="Paste your authorization code here..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    disabled={fyersAuthStep === 'processing'}
+                  />
+                </div>
+                
+                <div className="flex space-x-3">
+                  <button
+                    onClick={submitFyersCode}
+                    disabled={fyersAuthStep === 'processing' || !fyersAuthCode.trim()}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                  >
+                    {fyersAuthStep === 'processing' ? (
+                      <span className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Processing...
+                      </span>
+                    ) : (
+                      'Submit Code'
+                    )}
+                  </button>
+                  <button
+                    onClick={cancelFyersAuth}
+                    disabled={fyersAuthStep === 'processing'}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="bg-white rounded-lg shadow-lg p-6">
           <h2 className="text-2xl font-semibold mb-4">System Status</h2>

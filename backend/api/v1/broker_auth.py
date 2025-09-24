@@ -250,6 +250,46 @@ async def test_broker_connection(broker_id: str) -> Dict[str, Any]:
         logger.error(f"Error testing {broker_id} connection: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to test {broker_id} connection")
 
+@router.get("/fyers/url")
+async def get_fyers_auth_url() -> Dict[str, Any]:
+    """Get Fyers User App authentication URL"""
+    try:
+        fyers_service = broker_manager.brokers.get('fyers')
+        if not fyers_service:
+            return {"error": "Fyers service not available"}
+        
+        auth_url = fyers_service.get_auth_url()
+        logger.info("Generated Fyers User App authentication URL")
+        return {"auth_url": auth_url}
+        
+    except Exception as e:
+        logger.error(f"Error generating Fyers auth URL: {str(e)}")
+        return {"error": f"Failed to generate auth URL: {str(e)}"}
+
+@router.post("/fyers/manual-auth")
+async def fyers_manual_auth(request: Dict[str, str]) -> Dict[str, Any]:
+    """Handle manual Fyers User App authentication with authorization code"""
+    try:
+        auth_code = request.get('auth_code')
+        if not auth_code:
+            return {"success": False, "error": "Authorization code is required"}
+        
+        logger.info(f"Processing manual Fyers authentication with code: {auth_code[:20]}...")
+        
+        # Exchange code for token using Fyers service
+        token_result = await broker_manager.exchange_code_for_token('fyers', auth_code)
+        
+        if token_result.get("error"):
+            logger.error(f"Fyers manual auth token exchange failed: {token_result.get('error')}")
+            return {"success": False, "error": token_result.get('error')}
+        
+        logger.info("Fyers manual authentication successful")
+        return {"success": True, "message": "Fyers authentication completed successfully"}
+        
+    except Exception as e:
+        logger.error(f"Error in manual Fyers authentication: {str(e)}")
+        return {"success": False, "error": f"Authentication failed: {str(e)}"}
+
 @router.get("/health")
 async def get_broker_health() -> Dict[str, Any]:
     """Get overall health summary of all brokers"""

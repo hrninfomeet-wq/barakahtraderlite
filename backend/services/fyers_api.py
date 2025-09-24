@@ -15,14 +15,14 @@ from loguru import logger
 class FyersAPIService:
     def __init__(self):
         """Initialize Fyers API service with credentials from environment"""
-        self.client_id = os.getenv('FYERS_CLIENT_ID')
-        self.api_key = os.getenv('FYERS_API_KEY')
-        self.api_secret = os.getenv('FYERS_API_SECRET')
+        # For User App type, use the provided credentials
+        self.client_id = "8LH008CGEA-100"  # User App client_id
+        self.api_key = "8LH008CGEA-100"   # Same as client_id for User App
+        self.api_secret = "Q05OSJO6PQ"    # User App secret_key
         self.access_token = os.getenv('FYERS_ACCESS_TOKEN')
         self.base_url = 'https://api-t1.fyers.in/api/v3'
-        # Use Replit domain for OAuth redirect
-        replit_domain = os.getenv('REPLIT_DEV_DOMAIN') or 'localhost:8000'
-        self.redirect_uri = f'https://{replit_domain}/api/v1/auth/fyers/callback'
+        # For User App, use the official Fyers redirect URI
+        self.redirect_uri = "https://trade.fyers.in/api-login/redirect-uri/index.html"
         
         # Log initialization status
         has_key = "✓" if self.api_key else "✗"
@@ -34,17 +34,17 @@ class FyersAPIService:
         return bool(self.api_key and self.access_token)
     
     def get_auth_url(self) -> str:
-        """Generate Fyers OAuth URL for user authentication"""
-        if not self.api_key:
-            raise ValueError("Fyers API key not configured")
+        """Generate Fyers OAuth URL for user authentication - User App format"""
+        if not self.client_id:
+            raise ValueError("Fyers client_id not configured")
             
-        # Fyers OAuth URL construction - correct APIv3 endpoint
-        # Using the updated v3 authentication flow
+        # Fyers User App OAuth URL construction - matches official samples
+        # Using the exact format from official Fyers User App documentation
         auth_url = f"https://api-t1.fyers.in/api/v3/generate-authcode?" \
-                  f"client_id={self.api_key}&" \
+                  f"client_id={self.client_id}&" \
                   f"redirect_uri={self.redirect_uri}&" \
                   f"response_type=code&" \
-                  f"state=fyers_auth"
+                  f"state=sample_state"
         
         return auth_url
     
@@ -55,8 +55,8 @@ class FyersAPIService:
             if not self.api_key or not self.api_secret:
                 return {"error": "Missing Fyers API credentials", "details": "API key or secret not configured"}
             
-            # Generate appIdHash as per Fyers v3 API specification
-            app_id_hash = hashlib.sha256(f"{self.api_key}:{self.api_secret}".encode('utf-8')).hexdigest()
+            # Generate appIdHash as per Fyers User App v3 API specification
+            app_id_hash = hashlib.sha256(f"{self.client_id}:{self.api_secret}".encode('utf-8')).hexdigest()
             
             async with httpx.AsyncClient() as client:
                 # Fyers v3 token exchange endpoint - updated to correct URL
@@ -66,7 +66,7 @@ class FyersAPIService:
                         'grant_type': 'authorization_code',
                         'appIdHash': app_id_hash,
                         'code': auth_code,
-                        'client_id': self.api_key  # Added client_id as required by v3
+                        'client_id': self.client_id  # User App client_id
                     },
                     headers={
                         'Content-Type': 'application/json'
