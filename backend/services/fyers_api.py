@@ -387,6 +387,78 @@ class FyersAPIService:
             logger.error(f"Fyers funds API error: {str(e)}")
             return {"error": "Funds API request failed", "exception": str(e)}
 
+    async def get_option_data(self, symbol: str, expiry: str, strike: int, option_type: str) -> Dict[str, Any]:
+        """Fetch option data for specific symbol, expiry, strike and type from Fyers API"""
+        if not self.has_credentials():
+            logger.warning("Fyers API credentials not available for option data")
+            return {"error": "No valid credentials"}
+        
+        try:
+            # Convert expiry format from "30 SEP 25" to "30SEP25"
+            expiry_formatted = expiry.replace(" ", "").upper()
+            
+            # Format: NSE:SYMBOL_EXPIRY_STRIKE_TYPE (e.g., NSE:TCS30SEP253060CE)
+            option_symbol = f"NSE:{symbol}{expiry_formatted}{strike}{option_type}"
+            
+            logger.info(f"Fetching Fyers option data for {option_symbol}")
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.base_url}/data/quotes",
+                    params={
+                        'symbols': option_symbol,
+                    },
+                    headers={
+                        'Authorization': f'{self.client_id}:{self.access_token}',
+                    },
+                    timeout=15.0
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    logger.info(f"Fyers option API response: {data.get('s', 'unknown')} for {option_symbol}")
+                    
+                    # Extract option data from Fyers response
+                    quotes_array = data.get('d', [])
+                    if quotes_array and len(quotes_array) > 0:
+                        quote_item = quotes_array[0]
+                        if isinstance(quote_item, dict) and 'v' in quote_item:
+                            quote_data = quote_item['v']
+                            
+                            option_info = {
+                                'symbol': option_symbol,
+                                'strike': strike,
+                                'expiry': expiry,
+                                'option_type': option_type,
+                                'last_price': float(quote_data.get('lp', 0)),
+                                'change': float(quote_data.get('ch', 0)),
+                                'change_percent': float(quote_data.get('chp', 0)),
+                                'volume': int(quote_data.get('volume', 0)),
+                                'open_interest': int(quote_data.get('oi', 0)),  # Open Interest
+                                'oi_change': int(quote_data.get('oi_change', 0)),  # OI Change
+                                'high': float(quote_data.get('high_price', 0)),
+                                'low': float(quote_data.get('low_price', 0)),
+                                'open': float(quote_data.get('open_price', 0)),
+                                'prev_close': float(quote_data.get('prev_close_price', 0)),
+                                'bid': float(quote_data.get('bid', 0)),
+                                'ask': float(quote_data.get('ask', 0)),
+                                'timestamp': datetime.now().isoformat(),
+                                'source': 'fyers'
+                            }
+                            
+                            return {"success": True, "data": option_info}
+                        else:
+                            return {"error": "Invalid response format from Fyers API"}
+                    else:
+                        return {"error": "No data found for the specified option symbol"}
+                else:
+                    logger.error(f"Fyers option API error: {response.status_code} - {response.text}")
+                    return {"error": "Option API request failed", "status_code": response.status_code, "details": response.text}
+                    
+        except Exception as e:
+            logger.error(f"Fyers option API error: {str(e)}")
+            return {"error": "Option API request failed", "exception": str(e)}
+
     def disconnect(self):
         """Clear stored credentials"""
         self.access_token = None
