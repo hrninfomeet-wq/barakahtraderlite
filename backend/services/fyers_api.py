@@ -9,7 +9,7 @@ import httpx
 from typing import Dict, Any, Optional
 import json
 import hashlib
-from datetime import datetime
+from datetime import datetime, timedelta
 from loguru import logger
 from core.security import CredentialVault
 from models.trading import APIProvider
@@ -25,6 +25,7 @@ class FyersAPIService:
         self.base_url = 'https://api-t1.fyers.in'
         # For User App, use the official Fyers redirect URI
         self.redirect_uri = "https://trade.fyers.in/api-login/redirect-uri/index.html"
+        self.token_expires_at = None
         
         # Initialize credential vault for secure token storage
         self.credential_vault = CredentialVault()
@@ -36,33 +37,68 @@ class FyersAPIService:
         logger.info(f"FyersAPIService initialized - API Key: {has_key}, Token: {has_token}")
     
     def _load_stored_token(self):
-        """Load stored access token from secure storage"""
+        """Load stored access token with expiry check"""
         try:
-            # Load from environment variable for now
-            # In production, would use proper secure storage
+            # Load from environment variable with expiry info
             self.access_token = os.getenv('FYERS_ACCESS_TOKEN')
-            if self.access_token:
-                logger.info("Fyers token loaded from environment")
+            expires_str = os.getenv('FYERS_TOKEN_EXPIRES_AT')
+            
+            if self.access_token and expires_str:
+                self.token_expires_at = datetime.fromisoformat(expires_str)
+                
+                # Check if token is still valid (with 30min buffer)
+                if datetime.now() < self.token_expires_at - timedelta(minutes=30):
+                    logger.info("Fyers token loaded from environment - still valid")
+                    return
+                else:
+                    logger.warning("Stored Fyers token has expired, clearing...")
+                    os.environ.pop('FYERS_ACCESS_TOKEN', None)
+                    os.environ.pop('FYERS_TOKEN_EXPIRES_AT', None)
+                    self.access_token = None
+                    self.token_expires_at = None
+                    return
+            elif self.access_token:
+                logger.info("Fyers token loaded from environment (no expiry info)")
+                # Set default expiry (Fyers tokens typically last 8 hours)
+                self.token_expires_at = datetime.now() + timedelta(hours=8)
             else:
                 logger.debug("No Fyers token found in environment")
+                self.token_expires_at = None
+                
         except Exception as e:
             logger.warning(f"Failed to load stored Fyers token: {e}")
             self.access_token = None
+            self.token_expires_at = None
     
     async def _store_token(self, token_data: Dict[str, Any]):
-        """Store access token securely"""
+        """Store access token with expiry information"""
         try:
             if 'access_token' in token_data:
-                # Store in environment for persistence across requests
-                # In production, would use proper secure storage like CredentialVault
+                self.access_token = token_data['access_token']
+                
+                # Calculate expiry time (Fyers tokens typically last 8 hours)
+                expires_at = datetime.now() + timedelta(hours=8)
+                self.token_expires_at = expires_at
+                
+                # Store in environment with expiry info
                 os.environ['FYERS_ACCESS_TOKEN'] = token_data['access_token']
-                logger.info("Fyers token stored successfully")
+                os.environ['FYERS_TOKEN_EXPIRES_AT'] = expires_at.isoformat()
+                
+                logger.info(f"Fyers token stored - expires at {expires_at.strftime('%Y-%m-%d %H:%M:%S')}")
         except Exception as e:
             logger.error(f"Failed to store Fyers token: {e}")
     
     def has_credentials(self) -> bool:
         """Check if we have necessary credentials for API calls"""
-        return bool(self.api_key and self.access_token)
+        if not (self.api_key and self.access_token):
+            return False
+            
+        # Check if token has expired
+        if self.token_expires_at and datetime.now() >= self.token_expires_at - timedelta(minutes=30):
+            logger.warning("Fyers token has expired or will expire soon")
+            return False
+            
+        return True
     
     def get_auth_url(self) -> str:
         """Generate Fyers OAuth URL for user authentication - User App format"""
@@ -221,13 +257,26 @@ class FyersAPIService:
             return {"error": "API request failed", "exception": str(e)}
     
     def get_status(self) -> Dict[str, Any]:
-        """Get current authentication status"""
+        """Get current authentication status with expiry information"""
+        token_status = 'valid'
+        if self.access_token and self.token_expires_at:
+            if datetime.now() >= self.token_expires_at:
+                token_status = 'expired'
+            elif datetime.now() >= self.token_expires_at - timedelta(minutes=30):
+                token_status = 'expiring_soon'
+        elif self.access_token:
+            token_status = 'unknown_expiry'
+        else:
+            token_status = 'missing'
+            
         return {
             'has_api_key': bool(self.api_key),
             'has_access_token': bool(self.access_token),
             'has_credentials': self.has_credentials(),
             'status': 'authenticated' if self.has_credentials() else 'disconnected',
-            'requires_login': not bool(self.access_token),
+            'requires_login': not self.has_credentials(),
+            'token_status': token_status,
+            'token_expires_at': self.token_expires_at.isoformat() if self.token_expires_at else None,
             'provider': 'fyers',
         }
     

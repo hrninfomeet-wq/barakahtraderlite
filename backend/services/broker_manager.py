@@ -24,7 +24,8 @@ class BrokerManager:
         }
         
         # Priority order for data fetching (most reliable first)
-        self.priority_order = ['upstox', 'flattrade', 'fyers', 'aliceblue']
+        # Fyers first for real data when user specifically authenticates
+        self.priority_order = ['fyers', 'upstox', 'flattrade', 'aliceblue']
         
         logger.info(f"BrokerManager initialized with {len(self.brokers)} brokers")
     

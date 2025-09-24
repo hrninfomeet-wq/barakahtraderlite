@@ -204,12 +204,27 @@ export default function Home() {
     setAuthenticating(null);
   };
 
+  // Check for token expiry and show re-auth popup
+  const checkTokenExpiry = useCallback(async () => {
+    Object.entries(brokerStatuses).forEach(([broker, status]) => {
+      if (status.token_status === 'expired' || status.token_status === 'expiring_soon') {
+        if (!confirm(`Your ${broker} token ${status.token_status === 'expired' ? 'has expired' : 'is expiring soon'}. Would you like to re-authenticate now?`)) {
+          return;
+        }
+        authenticateBroker(broker);
+      }
+    });
+  }, [brokerStatuses, authenticateBroker]);
+
   useEffect(() => {
     fetchBrokerStatuses();
-    // Refresh statuses every 30 seconds
-    const interval = setInterval(fetchBrokerStatuses, 30000);
+    // Refresh statuses every 30 seconds and check for expiry
+    const interval = setInterval(() => {
+      fetchBrokerStatuses();
+      checkTokenExpiry();
+    }, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [checkTokenExpiry]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
