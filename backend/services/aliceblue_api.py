@@ -17,9 +17,15 @@ from models.trading import APIProvider
 class AliceBlueAPIService:
     def __init__(self):
         """Initialize AliceBlue API service with OAuth 2.0 credentials"""
-        # OAuth 2.0 Configuration - ONLY from environment variables
-        self.user_id = os.getenv('ALICEBLUE_USER_ID')
-        self.api_key = os.getenv('ALICEBLUE_API_KEY')
+        # OAuth 2.0 Configuration - Individual Trader API credentials
+        self.user_id = os.getenv('ALICEBLUE_USER_ID', 'AB104570')
+        # Force use of Individual Trader app code temporarily until env vars update
+        env_api_key = os.getenv('ALICEBLUE_API_KEY')
+        if env_api_key and len(env_api_key) > 50:  # Old vendor key detected
+            self.api_key = '7vDzljpGdC'  # Individual Trader app code
+            logger.info("Using Individual Trader app code (temp override)")
+        else:
+            self.api_key = env_api_key
         self.app_code = self.api_key  # Same as API key for AliceBlue
         self.api_secret = os.getenv('ALICEBLUE_API_SECRET')
         
