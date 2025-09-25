@@ -55,34 +55,51 @@ export default function Home() {
     setAuthenticating(broker);
     
     try {
-      // AliceBlue uses API key authentication, not OAuth
+      // AliceBlue uses OAuth flow like other brokers
       if (broker === 'aliceblue') {
-        const apiKey = prompt('Enter your AliceBlue API Key:');
-        if (!apiKey) {
+        const response = await fetch(`/api/v1/auth/${broker}/login`);
+        const data = await response.json();
+        
+        if (data.error) {
+          console.error('AliceBlue auth URL error:', data.error);
+          alert('Error: ' + data.error);
           setAuthenticating(null);
           return;
         }
         
-        // Authenticate with API key
-        const response = await fetch(`/api/v1/auth/${broker}/api-key`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ api_key: apiKey })
-        });
+        // Open AliceBlue OAuth in new window
+        const authWindow = window.open(data.auth_url, '_blank', 'width=600,height=700');
         
-        const data = await response.json();
+        // Listen for the auth callback
+        const handleMessage = (event: MessageEvent) => {
+          if (event.origin !== window.location.origin) return;
+          
+          if (event.data.type === 'AUTH_SUCCESS' && event.data.broker === broker) {
+            window.removeEventListener('message', handleMessage);
+            authWindow?.close();
+            alert('AliceBlue authenticated successfully!');
+            setAuthenticating(null);
+            // Refresh broker statuses
+            fetchBrokerStatuses();
+          } else if (event.data.type === 'AUTH_ERROR' && event.data.broker === broker) {
+            window.removeEventListener('message', handleMessage);
+            authWindow?.close();
+            alert('AliceBlue authentication failed: ' + event.data.error);
+            setAuthenticating(null);
+          }
+        };
         
-        if (response.ok) {
-          console.log('AliceBlue authentication successful');
-          setTimeout(fetchBrokerStatuses, 1000);
-        } else {
-          console.error('AliceBlue authentication failed:', data.detail);
-          alert(`Authentication failed: ${data.detail}`);
-        }
+        window.addEventListener('message', handleMessage);
         
-        setAuthenticating(null);
+        // Clean up if window is closed manually
+        const checkClosed = setInterval(() => {
+          if (authWindow?.closed) {
+            clearInterval(checkClosed);
+            window.removeEventListener('message', handleMessage);
+            setAuthenticating(null);
+          }
+        }, 1000);
+        
         return;
       }
       
