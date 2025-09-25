@@ -67,22 +67,28 @@ export default function Home() {
           return;
         }
         
-        // Open AliceBlue OAuth in popup window
+        // Try popup first, fallback to new tab if blocked
         console.log('Opening AliceBlue auth popup with URL:', data.auth_url);
-        const authWindow = window.open(
+        let authWindow = window.open(
           data.auth_url, 
           'aliceblue_auth_popup', 
           'width=600,height=700,scrollbars=yes,resizable=yes,location=yes,status=no,menubar=no,toolbar=no'
         );
         
-        if (!authWindow) {
-          console.error('Failed to open popup window - popup might be blocked');
-          alert('Popup blocked! Please allow popups for this site and try again.');
-          setAuthenticating(null);
-          return;
+        // If popup is blocked, try opening in new tab
+        if (!authWindow || authWindow.closed) {
+          console.warn('Popup blocked or closed, opening in new tab instead');
+          authWindow = window.open(data.auth_url, '_blank');
+          
+          if (!authWindow) {
+            console.error('Failed to open auth window - both popup and tab blocked');
+            alert('Window blocked! Please allow popups/new tabs for this site and try again.');
+            setAuthenticating(null);
+            return;
+          }
         }
         
-        console.log('AliceBlue auth popup opened successfully');
+        console.log('AliceBlue auth window opened successfully');
         
         // Listen for the auth callback
         const handleMessage = (event: MessageEvent) => {
