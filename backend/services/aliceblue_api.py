@@ -189,25 +189,33 @@ class AliceBlueAPIService:
         try:
             # Check required credentials
             if not self.api_key or not self.api_secret:
+                logger.error("Missing AliceBlue API credentials")
                 return {"error": "Missing AliceBlue API credentials", "details": "API key or secret not configured"}
             
             # Use provided user_id or default
             actual_user_id = user_id or self.user_id
+            logger.info(f"AliceBlue token exchange - User ID: {actual_user_id}, Auth Code: {auth_code[:8]}...")
             
             # Generate SHA-256 checksum as specified: userId + authCode + apiSecret
             checksum_string = f"{actual_user_id}{auth_code}{self.api_secret}"
             checksum = hashlib.sha256(checksum_string.encode('utf-8')).hexdigest()
+            logger.debug(f"Generated checksum for AliceBlue: {checksum[:16]}...")
+            
+            request_payload = {
+                'userId': actual_user_id,
+                'authCode': auth_code,
+                'checksum': checksum,
+                'appCode': self.api_key
+            }
+            
+            logger.info(f"Making AliceBlue API request to: {self.base_url}/vendor/getUserDetails")
+            logger.debug(f"Request payload: {request_payload}")
             
             async with httpx.AsyncClient() as client:
                 # AliceBlue session endpoint as specified
                 response = await client.post(
                     f"{self.base_url}/vendor/getUserDetails",
-                    json={
-                        'userId': actual_user_id,
-                        'authCode': auth_code,
-                        'checksum': checksum,
-                        'appCode': self.api_key
-                    },
+                    json=request_payload,
                     headers={
                         'Content-Type': 'application/json',
                         'User-Agent': 'BarakahTrader/1.0',
@@ -215,8 +223,11 @@ class AliceBlueAPIService:
                     timeout=30.0
                 )
                 
+                logger.info(f"AliceBlue API response: {response.status_code}")
+                
                 if response.status_code == 200:
                     data = response.json()
+                    logger.info(f"AliceBlue response data: {data}")
                     
                     if data.get('status') == 'success' and data.get('data'):
                         session_data = data['data']
@@ -241,9 +252,11 @@ class AliceBlueAPIService:
                                 "token_type": "Bearer"
                             }
                         else:
+                            logger.error(f"No session ID in AliceBlue response: {data}")
                             return {"error": "No session ID received", "details": data}
                     else:
                         error_msg = data.get('message', 'Authentication failed')
+                        logger.error(f"AliceBlue authentication failed: {error_msg}, full response: {data}")
                         return {"error": f"Authentication failed: {error_msg}", "details": data}
                 else:
                     error_text = response.text
