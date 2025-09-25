@@ -67,8 +67,22 @@ export default function Home() {
           return;
         }
         
-        // Open AliceBlue OAuth in new window
-        const authWindow = window.open(data.auth_url, '_blank', 'width=600,height=700');
+        // Open AliceBlue OAuth in popup window
+        console.log('Opening AliceBlue auth popup with URL:', data.auth_url);
+        const authWindow = window.open(
+          data.auth_url, 
+          'aliceblue_auth_popup', 
+          'width=600,height=700,scrollbars=yes,resizable=yes,location=yes,status=no,menubar=no,toolbar=no'
+        );
+        
+        if (!authWindow) {
+          console.error('Failed to open popup window - popup might be blocked');
+          alert('Popup blocked! Please allow popups for this site and try again.');
+          setAuthenticating(null);
+          return;
+        }
+        
+        console.log('AliceBlue auth popup opened successfully');
         
         // Listen for the auth callback
         const handleMessage = (event: MessageEvent) => {
