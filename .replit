@@ -15,12 +15,12 @@ localPort = 8000
 externalPort = 8000
 
 [[ports]]
-localPort = 43191
-externalPort = 3000
-
-[[ports]]
 localPort = 43945
 externalPort = 3001
+
+[[ports]]
+localPort = 46241
+externalPort = 3002
 
 [workflows]
 runButton = "Project"
@@ -56,11 +56,8 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd backend && python main.py"
+args = "cd backend && CREDENTIAL_VAULT_KEY=\"duf0ptpCkpGlVfMPLcOSOuOTQnerovtbDxaGaplJU8g=\" python main.py"
 waitForPort = 8000
-
-[workflows.workflow.metadata]
-outputType = "console"
 
 [deployment]
 deploymentTarget = "autoscale"
