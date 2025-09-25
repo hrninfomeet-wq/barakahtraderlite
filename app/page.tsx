@@ -8,6 +8,7 @@ interface BrokerStatus {
   has_api_key?: boolean;
   has_access_token?: boolean;
   requires_login?: boolean;
+  token_status?: string;
 }
 
 export default function Home() {

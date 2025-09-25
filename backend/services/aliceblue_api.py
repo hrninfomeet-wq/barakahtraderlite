@@ -453,13 +453,16 @@ class AliceBlueAPIService:
         # Try to load token first
         await self._ensure_token_loaded()
         
+        has_valid_credentials = self.has_credentials()
+        
         return {
             'has_api_key': bool(self.api_key),
             'has_api_secret': bool(self.api_secret),
             'has_access_token': bool(self.access_token or self.session_id),
-            'has_credentials': self.has_credentials(),
-            'status': 'authenticated' if self.has_credentials() else 'disconnected',
+            'has_credentials': has_valid_credentials,
+            'status': 'authenticated' if has_valid_credentials else 'disconnected',
             'provider': 'aliceblue',
+            'requires_login': not has_valid_credentials,
             'token_expires_at': self.token_expires_at.isoformat() if self.token_expires_at else None,
         }
     
