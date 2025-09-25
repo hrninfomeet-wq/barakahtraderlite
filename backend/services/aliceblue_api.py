@@ -41,9 +41,12 @@ class AliceBlueAPIService:
         self.base_url = 'https://ant.aliceblueonline.com/open-api/od/v1'
         # Auth URL will be constructed dynamically using environment API key
         
-        # OAuth configuration
+        # OAuth configuration - Use HTTPS for Replit domain
         replit_domain = os.getenv('REPLIT_DEV_DOMAIN', 'localhost:5000')
-        self.redirect_uri = f'http://{replit_domain}/api/v1/auth/aliceblue/callback'
+        if replit_domain == 'localhost:5000':
+            self.redirect_uri = f'http://{replit_domain}/api/v1/auth/aliceblue/callback'
+        else:
+            self.redirect_uri = f'https://{replit_domain}/api/v1/auth/aliceblue/callback'
         
         # Session management
         self.access_token = None
