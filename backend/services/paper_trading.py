@@ -7,7 +7,8 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, List
 from dataclasses import dataclass, field
 from decimal import Decimal
-from loguru import loggerfrom backend.models.trading import Order
+from loguru import logger
+from backend.models.trading import Order
 from backend.services.simulation_accuracy_framework import (
     SimulationAccuracyFramework,
     SimulationConfig,

@@ -69,42 +69,56 @@ export default function Home() {
         
         // Try popup first, fallback to new tab if blocked
         console.log('Opening AliceBlue auth popup with URL:', data.auth_url);
+        
+        // Create popup with more specific features to prevent auto-close
         let authWindow = window.open(
           data.auth_url, 
           'aliceblue_auth_popup', 
-          'width=600,height=700,scrollbars=yes,resizable=yes,location=yes,status=no,menubar=no,toolbar=no'
+          'width=800,height=800,scrollbars=yes,resizable=yes,location=yes,status=yes,menubar=no,toolbar=no,top=100,left=100'
         );
         
-        // If popup is blocked, try opening in new tab
-        if (!authWindow || authWindow.closed) {
-          console.warn('Popup blocked or closed, opening in new tab instead');
-          authWindow = window.open(data.auth_url, '_blank');
-          
-          if (!authWindow) {
-            console.error('Failed to open auth window - both popup and tab blocked');
-            alert('Window blocked! Please allow popups/new tabs for this site and try again.');
+        // Check if popup was blocked
+        if (!authWindow) {
+          console.error('Popup blocked by browser');
+          alert('Popup blocked! Please allow popups for this site and try again.');
+          setAuthenticating(null);
+          return;
+        }
+        
+        // Check if popup closed immediately
+        setTimeout(() => {
+          if (authWindow.closed) {
+            console.warn('Popup closed immediately, this might be due to redirect URI issues');
+            alert('Popup closed automatically. This might be due to:\n1. Redirect URI not configured in Aliceblue developer portal\n2. Invalid app credentials\n\nPlease check your Aliceblue app configuration.');
             setAuthenticating(null);
             return;
           }
-        }
+        }, 1000);
         
         console.log('AliceBlue auth window opened successfully');
         
         // Listen for the auth callback
         const handleMessage = (event: MessageEvent) => {
-          if (event.origin !== window.location.origin) return;
+          // Allow messages from localhost (for development) and the actual domain
+          const allowedOrigins = [window.location.origin, 'http://localhost:5000', 'http://localhost:8000'];
+          if (!allowedOrigins.includes(event.origin)) {
+            console.log('Ignoring message from unauthorized origin:', event.origin);
+            return;
+          }
           
-          if (event.data.type === 'AUTH_SUCCESS' && event.data.broker === broker) {
+          console.log('Received message:', event.data);
+          
+          if (event.data.type === 'ALICEBLUE_AUTH_SUCCESS') {
             window.removeEventListener('message', handleMessage);
             authWindow?.close();
-            alert('AliceBlue authenticated successfully!');
+            alert('✅ AliceBlue authenticated successfully!');
             setAuthenticating(null);
             // Refresh broker statuses
             fetchBrokerStatuses();
-          } else if (event.data.type === 'AUTH_ERROR' && event.data.broker === broker) {
+          } else if (event.data.type === 'ALICEBLUE_AUTH_ERROR') {
             window.removeEventListener('message', handleMessage);
             authWindow?.close();
-            alert('AliceBlue authentication failed: ' + event.data.error);
+            alert('❌ AliceBlue authentication failed: ' + event.data.error);
             setAuthenticating(null);
           }
         };
